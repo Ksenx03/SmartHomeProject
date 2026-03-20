@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/windowBackground">
+
+    <ImageView
+        android:id="@+id/ivBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.3"
+        android:src="@drawable/bg_home" />
+
+    <LinearLayout
+        android:id="@+id/topToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:background="#9900695C"
+        android:elevation="0dp"
+        android:gravity="bottom"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingBottom="16dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Smart"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/ivThemeToggle"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:src="@drawable/ic_theme_light"
+            app:tint="#FFFFFF" />
+
+        <ImageView
+            android:id="@+id/ivConnectionStatus"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_marginStart="20dp"
+            android:src="@drawable/ic_status_cloud"
+            app:tint="#FF5252" />
+
+        <ImageView
+            android:id="@+id/ivLogout"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_marginStart="20dp"
+            android:src="@drawable/ic_logout"
+            app:tint="#FFFFFF" />
+
+    </LinearLayout>
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardWelcome"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:cardBackgroundColor="?attr/colorSurface"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="2dp"
+        app:layout_constraintTop_toBottomOf="@id/topToolbar">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Welcome Home,"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Patryk"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cardWelcome">
+
+        <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="2"
+            android:padding="12dp">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnHeating"
+                style="@style/SmartCardStyle">
+                <LinearLayout style="@style/SmartCardContent">
+                    <ImageView
+                        android:id="@+id/ivHeating"
+                        android:src="@drawable/ic_heating"
+                        style="@style/SmartIconStyle" />
+                    <TextView android:text="Heating" style="@style/SmartTextStyle" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnFan"
+                style="@style/SmartCardStyle">
+                <LinearLayout style="@style/SmartCardContent">
+                    <ImageView
+                        android:id="@+id/ivFan"
+                        android:src="@drawable/ic_ventilation"
+                        style="@style/SmartIconStyle" />
+                    <TextView android:text="Ventilation" style="@style/SmartTextStyle" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnWater"
+                style="@style/SmartCardStyle">
+                <LinearLayout style="@style/SmartCardContent">
+                    <ImageView
+                        android:id="@+id/ivWater"
+                        android:src="@drawable/ic_water_alarm"
+                        style="@style/SmartIconStyle" />
+                    <TextView android:text="Water Sensor" style="@style/SmartTextStyle" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnAccess"
+                style="@style/SmartCardStyle">
+                <LinearLayout style="@style/SmartCardContent">
+                    <ImageView
+                        android:id="@+id/ivAccess"
+                        android:src="@drawable/ic_access_lock"
+                        style="@style/SmartIconStyle" />
+                    <TextView android:text="Access" style="@style/SmartTextStyle" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnLighting"
+                style="@style/SmartCardStyle">
+                <LinearLayout style="@style/SmartCardContent">
+                    <ImageView
+                        android:id="@+id/ivLighting"
+                        android:src="@drawable/ic_light_bulb"
+                        style="@style/SmartIconStyle" />
+                    <TextView android:text="Lighting" style="@style/SmartTextStyle" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnBlinds"
+                style="@style/SmartCardStyle">
+                <LinearLayout style="@style/SmartCardContent">
+                    <ImageView
+                        android:id="@+id/ivBlinds"
+                        android:src="@drawable/ic_blinds"
+                        style="@style/SmartIconStyle" />
+                    <TextView android:text="Blinds" style="@style/SmartTextStyle" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </GridLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
