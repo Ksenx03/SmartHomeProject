@@ -119,7 +119,7 @@
             </androidx.cardview.widget.CardView>
 
             <androidx.cardview.widget.CardView
-                android:id="@+id/btnFan"
+                android:id="@+id/btnVentilation"
                 style="@style/SmartCardStyle">
                 <LinearLayout style="@style/SmartCardContent">
                     <ImageView

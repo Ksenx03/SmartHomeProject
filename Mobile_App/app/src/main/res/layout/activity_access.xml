@@ -1,0 +1,81 @@
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="24dp">
+
+    <ImageView
+        android:id="@+id/btnBack"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@drawable/ic_back"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="#00695C" />
+
+    <TextView
+        android:id="@+id/tvAccessTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Door Access"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginStart="16dp"
+        app:layout_constraintTop_toTopOf="@id/btnBack"
+        app:layout_constraintBottom_toBottomOf="@id/btnBack"
+        app:layout_constraintStart_toEndOf="@id/btnBack" />
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardDoorStatus"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:layout_marginTop="32dp"
+        app:cardCornerRadius="16dp"
+        app:cardBackgroundColor="#E8F5E9"
+        app:layout_constraintTop_toBottomOf="@id/tvAccessTitle">
+
+        <TextView
+            android:id="@+id/tvDoorStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="DOOR CLOSED"
+            android:layout_gravity="center"
+            android:textStyle="bold"
+            android:textColor="#2E7D32"
+            android:textSize="18sp"/>
+    </androidx.cardview.widget.CardView>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Recent Logs"
+        android:layout_marginTop="24dp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/cardDoorStatus"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="50dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintTop_toBottomOf="@id/cardDoorStatus"
+        app:layout_constraintBottom_toTopOf="@id/btnSimulateCard">
+
+        <LinearLayout
+            android:id="@+id/logsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btnSimulateCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tap Card (ID: 4422)"
+        android:backgroundTint="#00695C"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
