@@ -1,0 +1,84 @@
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="24dp">
+
+    <ImageView
+        android:id="@+id/btnBack"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@drawable/ic_back"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="#00695C" />
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/colorPreviewCard"
+        android:layout_width="150dp"
+        android:layout_height="150dp"
+        android:layout_marginTop="40dp"
+        app:cardCornerRadius="75dp"
+        app:cardBackgroundColor="#FFEB3B"
+        app:layout_constraintTop_toBottomOf="@id/btnBack"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_light_bulb"
+            app:tint="#FFFFFF"/>
+    </androidx.cardview.widget.CardView>
+
+    <TextView
+        android:id="@+id/tvBrightnessLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Brightness: 80%"
+        android:layout_marginTop="40dp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/colorPreviewCard"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <SeekBar
+        android:id="@+id/sbBrightness"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:progress="80"
+        app:layout_constraintTop_toBottomOf="@id/tvBrightnessLabel"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Select Color"
+        android:layout_marginTop="32dp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/sbBrightness"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:columnCount="4"
+        android:alignmentMode="alignMargins"
+        app:layout_constraintTop_toBottomOf="@id/sbBrightness"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:paddingTop="40dp">
+
+        <View android:id="@+id/colorRed" android:layout_width="60dp" android:layout_height="60dp" android:background="#F44336" android:layout_margin="8dp"/>
+        <View android:id="@+id/colorGreen" android:layout_width="60dp" android:layout_height="60dp" android:background="#4CAF50" android:layout_margin="8dp"/>
+        <View android:id="@+id/colorBlue" android:layout_width="60dp" android:layout_height="60dp" android:background="#2196F3" android:layout_margin="8dp"/>
+        <View android:id="@+id/colorYellow" android:layout_width="60dp" android:layout_height="60dp" android:background="#FFEB3B" android:layout_margin="8dp"/>
+        <View android:id="@+id/colorPurple" android:layout_width="60dp" android:layout_height="60dp" android:background="#9C27B0" android:layout_margin="8dp"/>
+        <View android:id="@+id/colorOrange" android:layout_width="60dp" android:layout_height="60dp" android:background="#FF9800" android:layout_margin="8dp"/>
+        <View android:id="@+id/colorCyan" android:layout_width="60dp" android:layout_height="60dp" android:background="#00BCD4" android:layout_margin="8dp"/>
+        <View android:id="@+id/colorWhite" android:layout_width="60dp" android:layout_height="60dp" android:background="#E0E0E0" android:layout_margin="8dp"/>
+
+    </GridLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

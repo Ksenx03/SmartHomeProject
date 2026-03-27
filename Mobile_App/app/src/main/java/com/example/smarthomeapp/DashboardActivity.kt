@@ -18,7 +18,11 @@ class DashboardActivity : AppCompatActivity() {
         val themeBtn: ImageView = findViewById(R.id.ivThemeToggle)
         val ivLogout: ImageView = findViewById(R.id.ivLogout)
         val btnHeating: CardView = findViewById(R.id.btnHeating)
+        val btnVentilation: CardView = findViewById(R.id.btnVentilation)
+        val btnWater: CardView = findViewById(R.id.btnWater)
+        val btnAccess: CardView = findViewById(R.id.btnAccess)
         val btnLighting: CardView = findViewById(R.id.btnLighting)
+        val btnBlinds: CardView = findViewById(R.id.btnBlinds)
 
         // 2. Устанавливаем правильную иконку темы ПРИ ЗАГРУЗКЕ
         // MODE_NIGHT_YES = 2, MODE_NIGHT_NO = 1
@@ -51,6 +55,28 @@ class DashboardActivity : AppCompatActivity() {
         btnHeating.setOnClickListener {
             val intent = Intent(this, HeatingActivity::class.java)
             startActivity(intent)
+        }
+
+        btnVentilation.setOnClickListener {
+            val intent = Intent(this, VentilationActivity::class.java)
+            startActivity(intent)
+        }
+
+        btnWater.setOnClickListener {
+            val intent = Intent(this, WaterSensorActivity::class.java)
+            startActivity(intent)
+        }
+
+        btnAccess.setOnClickListener {
+            startActivity(Intent(this, AccessActivity::class.java))
+        }
+
+        btnLighting.setOnClickListener {
+            startActivity(Intent(this, LightingActivity::class.java))
+        }
+
+        btnBlinds.setOnClickListener {
+            startActivity(Intent(this, BlindsActivity::class.java))
         }
 
     }
