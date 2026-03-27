@@ -6,8 +6,7 @@ import android.widget.ImageView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.cardview.widget.CardView
 
 class DashboardActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -15,36 +14,44 @@ class DashboardActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_dashboard)
 
+        // 1. Находим элементы
         val themeBtn: ImageView = findViewById(R.id.ivThemeToggle)
+        val ivLogout: ImageView = findViewById(R.id.ivLogout)
+        val btnHeating: CardView = findViewById(R.id.btnHeating)
+        val btnLighting: CardView = findViewById(R.id.btnLighting)
 
-// Проверяем текущую тему ПРИ ЗАПУСКЕ, чтобы поставить нужную иконку
+        // 2. Устанавливаем правильную иконку темы ПРИ ЗАГРУЗКЕ
+        // MODE_NIGHT_YES = 2, MODE_NIGHT_NO = 1
         val currentMode = AppCompatDelegate.getDefaultNightMode()
         if (currentMode == AppCompatDelegate.MODE_NIGHT_YES) {
-            themeBtn.setImageResource(R.drawable.ic_theme_dark) // ставим луну
+            themeBtn.setImageResource(R.drawable.ic_theme_dark) // Луна
         } else {
-            themeBtn.setImageResource(R.drawable.ic_theme_light)   // ставим солнце
+            themeBtn.setImageResource(R.drawable.ic_theme_light) // Солнце
         }
 
+        // 3. Логика переключения темы
         themeBtn.setOnClickListener {
             if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES) {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
             } else {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             }
+            // После этой команды Activity перезапустится сама
         }
 
-        val ivLogout = findViewById<ImageView>(R.id.ivLogout)
-
+        // 4. Логика выхода (Logout)
         ivLogout.setOnClickListener {
-            // Создаем намерение вернуться на главный экран
             val intent = Intent(this, MainActivity::class.java)
-
-            // ОЧЕНЬ ВАЖНО для SOLID и безопасности:
-            // Эти флаги очищают историю переходов, чтобы нельзя было нажать "Назад" и вернуться в систему без логина
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-
             startActivity(intent)
-            finish() // Закрываем текущий экран
+            finish()
         }
+
+        // 5. Переход на Heating (Отопление)
+        btnHeating.setOnClickListener {
+            val intent = Intent(this, HeatingActivity::class.java)
+            startActivity(intent)
+        }
+
     }
 }
