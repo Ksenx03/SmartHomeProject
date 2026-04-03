@@ -12,6 +12,21 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SmartHomeApp">
         <activity
+            android:name=".BlindsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".LightingActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AccessActivity"
+            android:exported="false" />
+        <activity
+            android:name=".WaterSensorActivity"
+            android:exported="false" />
+        <activity
+            android:name=".VentilationActivity"
+            android:exported="false" />
+        <activity
             android:name=".HeatingActivity"
             android:exported="false" />
         <activity
