@@ -82,3 +82,10 @@ void FanManager::processCommand(String jsonCommand) {
     
     updateFan();
 }
+
+int FanManager::getSpeed() {
+    if (!isOn) {
+        return 0; // Jeśli wentylator jest wyłączony, zwracamy 0%
+    }
+    return currentSpeed; // Zwracamy aktualną moc
+}

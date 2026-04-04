@@ -45,3 +45,7 @@ String WaterSensorManager::getSensorJson() {
 bool WaterSensorManager::getAlarmState() {
     return isAlarm;
 }
+
+bool WaterSensorManager::isAlarmActive() {
+    return isAlarm;
+}

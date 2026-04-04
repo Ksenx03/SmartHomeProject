@@ -51,3 +51,7 @@ String EnvironmentManager::getSensorJson() {
 float EnvironmentManager::getTemp() {
     return currentTemp;
 }
+
+float EnvironmentManager::getHum() {
+    return currentHum;
+}

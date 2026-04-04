@@ -49,3 +49,7 @@ String GasSensorManager::getSensorJson() {
 bool GasSensorManager::getAlarmState() {
     return isAlarm;
 }
+
+bool GasSensorManager::isAlarmActive() {
+    return isAlarm;
+}

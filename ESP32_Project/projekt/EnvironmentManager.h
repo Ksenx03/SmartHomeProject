@@ -29,6 +29,7 @@ public:
     
     // Zwykły getter do przyszłej histerezy wentylatora
     float getTemp(); 
+    float getHum();
 };
 
 #endif

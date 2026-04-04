@@ -19,6 +19,7 @@ public:
     FanManager();
     void init();
     void processCommand(String jsonCommand);
+    int getSpeed();
 };
 
 #endif
