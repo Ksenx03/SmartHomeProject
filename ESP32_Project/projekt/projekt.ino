@@ -12,12 +12,13 @@
 #include "ServoManager.h"
 #include "DisplayManager.h"
 #include "MotionSensorManager.h"
+#include "DoorbellManager.h"
 
 // --- TUTAJ WPISZ NUMER SWOJEGO BRELOKA/KARTY ---
 // KARTA UID: 62 CB 09 51
 // BRELOK UID: C2 49 BC 54
 const String AUTHORIZED_CARD_1 = "62CB0951";
-const String AUTHORIZED_CARD_2 = "00000000";
+const String AUTHORIZED_CARD_2 = "00000000";  //tu mozna dodac brelok
 
 bool isSystemArmed = false;  // W domu jesteśmy bezpieczni (rozbrojony)
 bool isNightMode = false;    // Flaga pamiętająca, czy mamy oficjalnie "Noc"
@@ -46,6 +47,7 @@ RfidManager rfidManager;
 ServoManager servoManager;
 DisplayManager displayManager;
 MotionSensorManager motionManager;
+DoorbellManager doorbellManager;
 
 // Zmienna do asynchronicznego przesyłania danych do ekranu
 unsigned long lastDisplayUpdate = 0;
@@ -124,6 +126,7 @@ void setup() {
   lightManager.init();
   rfidManager.init();
   motionManager.init();
+  doorbellManager.init();
 
   displayManager.init(WiFi.localIP().toString());
 
@@ -407,5 +410,13 @@ void loop() {
       // Dopiero teraz układ "zapomina" o karcie
       isCardHeld = false;
     }
+  }
+  if (doorbellManager.isRinging()) {
+    Serial.println("Dzwonek do drzwi zostal aktywowany!");
+
+  buzzerManager.triggerDoorbell();
+    // 2. Akcja sieciowa - wysłanie informacji do aplikacji Android po MQTT
+    String jsonPayload = "{\"event\": \"doorbell\", \"status\": \"ringing\"}";
+    connectionManager.publishMessage("makieta/powiadomienia/dzwonek", jsonPayload);
   }
 }
