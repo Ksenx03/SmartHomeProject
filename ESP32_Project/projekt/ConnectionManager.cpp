@@ -1,23 +1,24 @@
 #include "ConnectionManager.h"
+#include "Config.h"
 #include <Arduino.h>
 
 ConnectionManager::ConnectionManager() {
     mqttClient.setClient(espClient);
 }
 
-void ConnectionManager::connectWiFi(const char* ssid, const char* password) {
-    Serial.print("Laczenie z Wi-Fi: ");
-    Serial.println(ssid);
-    WiFi.begin(ssid, password);
+// void ConnectionManager::connectWiFi(const char* ssid, const char* password) {
+//     Serial.print("Laczenie z Wi-Fi: ");
+//     Serial.println(ssid);
+//     WiFi.begin(ssid, password);
 
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nPolaczono z Wi-Fi!");
-    Serial.print("Adres IP ESP32: ");
-    Serial.println(WiFi.localIP());
-}
+//     while (WiFi.status() != WL_CONNECTED) {
+//         delay(500);
+//         Serial.print(".");
+//     }
+//     Serial.println("\nPolaczono z Wi-Fi!");
+//     Serial.print("Adres IP ESP32: ");
+//     Serial.println(WiFi.localIP());
+// }
 
 void ConnectionManager::setupMQTT(const char* server, int port) {
     mqttClient.setServer(server, port);
@@ -76,4 +77,22 @@ void ConnectionManager::publishMessage(const char* topic, String message) {
         // PubSubClient wymaga tablicy char (c_str), a nie obiektu String
         mqttClient.publish(topic, message.c_str());
     }
+}
+
+void ConnectionManager::initWiFi() {
+    // Rejestracja dostępnych sieci
+    wifiMulti.addAP(WIFI_SSID_1, WIFI_PASS_1);
+    wifiMulti.addAP(WIFI_SSID_2, WIFI_PASS_2);
+
+    Serial.println("Nawiązywanie połączenia WiFi...");
+    
+    // Pętla czekająca na połączenie z dowolną z sieci
+    while (wifiMulti.run() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    Serial.println("\nPołączono z WiFi!");
+    Serial.print("Adres IP: ");
+    Serial.println(WiFi.localIP());
 }

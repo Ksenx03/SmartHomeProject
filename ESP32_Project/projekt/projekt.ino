@@ -131,7 +131,9 @@ void setup() {
   displayManager.init(WiFi.localIP().toString());
 
   // 1. Zestawienie połączenia Wi-Fi
-  connectionManager.connectWiFi(WIFI_SSID, WIFI_PASSWORD);
+  // connectionManager.connectWiFi(WIFI_SSID, WIFI_PASSWORD);
+  // 1. Zestawienie połączenia Wi-Fi z mechanizmem Failover
+  connectionManager.initWiFi();
   // 2. Konfiguracja adresu brokera
   connectionManager.setupMQTT(MQTT_SERVER, MQTT_PORT);
   // REJESTRACJA CALLBACKA: Mówimy menedżerowi sieci: "jak coś przyjdzie, odpal funkcję mqttCallback"
@@ -414,7 +416,7 @@ void loop() {
   if (doorbellManager.isRinging()) {
     Serial.println("Dzwonek do drzwi zostal aktywowany!");
 
-  buzzerManager.triggerDoorbell();
+    buzzerManager.triggerDoorbell();
     // 2. Akcja sieciowa - wysłanie informacji do aplikacji Android po MQTT
     String jsonPayload = "{\"event\": \"doorbell\", \"status\": \"ringing\"}";
     connectionManager.publishMessage("makieta/powiadomienia/dzwonek", jsonPayload);
