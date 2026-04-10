@@ -1,84 +1,91 @@
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="24dp">
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:gravity="center_horizontal"
+    android:background="?android:attr/windowBackground">
+
+    <ImageButton
+        android:id="@+id/btnBack"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="start"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_back" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Освещение"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="40dp" />
 
     <ImageView
-        android:id="@+id/btnBack"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:src="@drawable/ic_back"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="#00695C" />
-
-    <androidx.cardview.widget.CardView
-        android:id="@+id/colorPreviewCard"
-        android:layout_width="150dp"
-        android:layout_height="150dp"
-        android:layout_marginTop="40dp"
-        app:cardCornerRadius="75dp"
-        app:cardBackgroundColor="#FFEB3B"
-        app:layout_constraintTop_toBottomOf="@id/btnBack"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:layout_gravity="center"
-            android:src="@drawable/ic_light_bulb"
-            app:tint="#FFFFFF"/>
-    </androidx.cardview.widget.CardView>
+        android:id="@+id/ivLightButton"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:src="@drawable/ic_light_bulb"
+        android:padding="10dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Toggle Light" />
 
     <TextView
-        android:id="@+id/tvBrightnessLabel"
+        android:id="@+id/tvLightStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Brightness: 80%"
-        android:layout_marginTop="40dp"
+        android:text="OFF"
+        android:textSize="24sp"
         android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/colorPreviewCard"
-        app:layout_constraintStart_toStartOf="parent"/>
+        android:textColor="#FF5252"
+        android:layout_marginTop="10dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Яркость"
+        android:layout_marginTop="40dp"
+        android:layout_gravity="start" />
 
     <SeekBar
-        android:id="@+id/sbBrightness"
+        android:id="@+id/seekBarBrightness"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:progress="80"
-        app:layout_constraintTop_toBottomOf="@id/tvBrightnessLabel"/>
+        android:max="255"
+        android:progress="255"
+        android:layout_marginTop="10dp" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Select Color"
-        android:layout_marginTop="32dp"
-        android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/sbBrightness"
-        app:layout_constraintStart_toStartOf="parent"/>
+        android:text="Выбор цвета"
+        android:layout_marginTop="30dp"
+        android:layout_gravity="start" />
 
     <GridLayout
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
         android:columnCount="4"
-        android:alignmentMode="alignMargins"
-        app:layout_constraintTop_toBottomOf="@id/sbBrightness"
-        app:layout_constraintBottom_toBottomOf="parent"
-        android:paddingTop="40dp">
+        android:layout_marginTop="10dp"
+        android:alignmentMode="alignMargins">
 
-        <View android:id="@+id/colorRed" android:layout_width="60dp" android:layout_height="60dp" android:background="#F44336" android:layout_margin="8dp"/>
-        <View android:id="@+id/colorGreen" android:layout_width="60dp" android:layout_height="60dp" android:background="#4CAF50" android:layout_margin="8dp"/>
-        <View android:id="@+id/colorBlue" android:layout_width="60dp" android:layout_height="60dp" android:background="#2196F3" android:layout_margin="8dp"/>
-        <View android:id="@+id/colorYellow" android:layout_width="60dp" android:layout_height="60dp" android:background="#FFEB3B" android:layout_margin="8dp"/>
-        <View android:id="@+id/colorPurple" android:layout_width="60dp" android:layout_height="60dp" android:background="#9C27B0" android:layout_margin="8dp"/>
-        <View android:id="@+id/colorOrange" android:layout_width="60dp" android:layout_height="60dp" android:background="#FF9800" android:layout_margin="8dp"/>
-        <View android:id="@+id/colorCyan" android:layout_width="60dp" android:layout_height="60dp" android:background="#00BCD4" android:layout_margin="8dp"/>
-        <View android:id="@+id/colorWhite" android:layout_width="60dp" android:layout_height="60dp" android:background="#E0E0E0" android:layout_margin="8dp"/>
+        <View android:id="@+id/colorRed" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#FF0000" />
+        <View android:id="@+id/colorGreen" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#00FF00" />
+        <View android:id="@+id/colorBlue" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#0000FF" />
+        <View android:id="@+id/colorWhite" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#FFFFFF" />
+
+        <View android:id="@+id/colorOrange" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#FF8C00" />
+        <View android:id="@+id/colorYellow" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#FFFF00" />
+        <View android:id="@+id/colorCyan" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#00FFFF" />
+        <View android:id="@+id/colorMagenta" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#FF00FF" />
+
+        <View android:id="@+id/colorPurple" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#800080" />
+        <View android:id="@+id/colorPink" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#FFC0CB" />
+        <View android:id="@+id/colorTurquoise" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#40E0D0" />
+        <View android:id="@+id/colorWarm" android:layout_width="65dp" android:layout_height="65dp" android:layout_margin="5dp" android:elevation="3dp" android:background="#FFE4B5" />
 
     </GridLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>
