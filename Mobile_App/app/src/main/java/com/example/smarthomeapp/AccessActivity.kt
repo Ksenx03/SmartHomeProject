@@ -1,54 +1,146 @@
 package com.example.smarthomeapp
 
+import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Bundle
-import android.view.Gravity
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import java.text.SimpleDateFormat
-import java.util.*
 
 class AccessActivity : AppCompatActivity() {
+
+    private lateinit var mqttHandler: MqttHandler
+    private var isArmed = false
+    private var isAlarmActive = false
+
+    private lateinit var ivShield: ImageView
+    private lateinit var tvSecurityText: TextView
+    private lateinit var btnToggle: Button
+    private lateinit var logsContainer: LinearLayout
+
+    private val heatingGreen = Color.parseColor("#00695C")
+    private val buttonBgInactive = Color.parseColor("#4D00695C")
+    private val alarmRed = Color.parseColor("#B71C1C")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_access)
 
-        val btnBack = findViewById<ImageView>(R.id.btnBack)
-        val btnSimulate = findViewById<Button>(R.id.btnSimulateCard)
-        val logsContainer = findViewById<LinearLayout>(R.id.logsContainer)
-        val tvDoorStatus = findViewById<TextView>(R.id.tvDoorStatus)
+        ivShield = findViewById(R.id.ivSecurityStatus)
+        tvSecurityText = findViewById(R.id.tvSecurityText)
+        btnToggle = findViewById(R.id.btnToggleSecurity)
+        logsContainer = findViewById(R.id.logsContainer)
 
-        btnBack.setOnClickListener { finish() }
+        findViewById<ImageView>(R.id.btnBack).setOnClickListener { finish() }
+        val btnUnlock = findViewById<Button>(R.id.btnUnlock)
 
-        // Список наших "разрешенных" ID
-        val validCards = listOf("4422", "8855")
+        loadSecurityState()
+        displayHistory()
+        updateUIState()
 
-        btnSimulate.setOnClickListener {
-            // Имитируем прикладывание карты 4422
-            val cardId = "4422"
-            addLog(cardId, logsContainer)
+        mqttHandler = MqttHandler(this)
+        mqttHandler.connect(
+            onConnected = { },
+            onMessage = { msg ->
+                runOnUiThread {
+                    handleMqtt(msg)
+                    displayHistory()
+                }
+            }
+        )
 
-            // "Открываем" дверь на 2 секунды
-            tvDoorStatus.text = "DOOR OPENED"
-            tvDoorStatus.setTextColor(android.graphics.Color.BLUE)
+        btnUnlock.setOnClickListener {
+            mqttHandler.publish("makieta/access/ustaw", "unlock")
+            openLockVisual() // Запускаем анимацию открытия
+        }
 
-            btnSimulate.postDelayed({
-                tvDoorStatus.text = "DOOR CLOSED"
-                tvDoorStatus.setTextColor(android.graphics.Color.parseColor("#2E7D32"))
-            }, 2000)
+        btnToggle.setOnClickListener {
+            val cmd = if (isAlarmActive || isArmed) "DISARM" else "ARM"
+            mqttHandler.publish("makieta/access/ustaw", cmd)
+        }
+
+        logsContainer.setOnLongClickListener {
+            getSharedPreferences("SecurityPrefs", Context.MODE_PRIVATE).edit()
+                .putString("logHistory", "").apply()
+            displayHistory()
+            true
         }
     }
 
-    private fun addLog(id: String, container: LinearLayout) {
-        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
-        val currentDate = sdf.format(Date())
+    private fun handleMqtt(msg: String) {
+        val cleanMsg = msg.trim()
+        when (cleanMsg) {
+            "ARMED" -> { isArmed = true; isAlarmActive = false }
+            "DISARMED" -> { isArmed = false; isAlarmActive = false }
+            "ALARM", "DENIED" -> { isAlarmActive = true }
+            "62CB0951" -> { openLockVisual() } // Если приложили твою карту
+        }
+        updateUIState()
+    }
 
-        val textView = TextView(this)
-        textView.text = "ID: $id | $currentDate | Authorized"
-        textView.setPadding(0, 10, 0, 10)
-        textView.textSize = 14f
+    private fun openLockVisual() {
+        // Меняем картинку на открытый замок
+        ivShield.setImageResource(R.drawable.ic_access_open)
+        ivShield.setColorFilter(heatingGreen)
 
-                // Добавляем новую запись в начало списка
-                container.addView(textView, 0)
+        // Через 5 секунд возвращаем закрытый замок
+        ivShield.postDelayed({
+            ivShield.setImageResource(R.drawable.ic_access_lock)
+            updateUIState() // Возвращаем актуальный цвет (красный или зеленый)
+        }, 5000)
+    }
+
+    private fun updateUIState() {
+        // Если замок сейчас в процессе "открытия" (визуально), не перекрашиваем его сразу
+        when {
+            isAlarmActive -> {
+                ivShield.setColorFilter(Color.RED)
+                tvSecurityText.text = "ALARM ACTIVE!"
+                tvSecurityText.setTextColor(Color.RED)
+                btnToggle.text = "STOP"
+                btnToggle.backgroundTintList = ColorStateList.valueOf(Color.RED)
+                btnToggle.setTextColor(Color.WHITE)
+            }
+            isArmed -> {
+                ivShield.setColorFilter(alarmRed)
+                tvSecurityText.text = "ARMED"
+                tvSecurityText.setTextColor(alarmRed)
+                btnToggle.text = "DISARM"
+                btnToggle.backgroundTintList = ColorStateList.valueOf(alarmRed)
+                btnToggle.setTextColor(Color.WHITE)
+            }
+            else -> {
+                ivShield.setColorFilter(heatingGreen)
+                tvSecurityText.text = "SECURE"
+                tvSecurityText.setTextColor(heatingGreen)
+                btnToggle.text = "ARM"
+                btnToggle.backgroundTintList = ColorStateList.valueOf(buttonBgInactive)
+                btnToggle.setTextColor(heatingGreen)
+            }
+        }
+    }
+
+    private fun displayHistory() {
+        logsContainer.removeAllViews()
+        val history = getSharedPreferences("SecurityPrefs", Context.MODE_PRIVATE)
+            .getString("logHistory", "") ?: ""
+
+        if (history.isEmpty()) return
+
+        history.split("\n").forEach { logLine ->
+            val tv = TextView(this).apply {
+                text = logLine
+                textSize = 14f
+                setPadding(0, 8, 0, 8)
+                setTextColor(if (logLine.contains("!!!")) Color.RED else heatingGreen)
+            }
+            logsContainer.addView(tv)
+        }
+    }
+
+    private fun loadSecurityState() {
+        val prefs = getSharedPreferences("SecurityPrefs", Context.MODE_PRIVATE)
+        isArmed = prefs.getBoolean("isArmed", false)
+        isAlarmActive = prefs.getBoolean("isAlarmActive", false)
     }
 }
