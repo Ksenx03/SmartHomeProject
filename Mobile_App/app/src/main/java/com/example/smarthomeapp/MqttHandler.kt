@@ -6,7 +6,7 @@ import org.eclipse.paho.client.mqttv3.*
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 
 class MqttHandler(context: Context) {
-    private val serverUri = "tcp://172.20.10.3:1883" // ПРОВЕРЬ СВОЙ IP!
+    private val serverUri = "tcp://172.20.10.3:1883"
     private val clientId = "AndroidClient_" + System.currentTimeMillis()
     private val client = MqttAsyncClient(serverUri, clientId, MemoryPersistence())
 
@@ -27,7 +27,8 @@ class MqttHandler(context: Context) {
         try {
             client.connect(options, null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken?) {
-                    client.subscribe("makieta/access/status", 0)
+                    // Убираем отсюда жесткую подписку на access!
+                    // Мы будем подписываться в самих Активити
                     onConnected()
                 }
                 override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {}
@@ -35,11 +36,16 @@ class MqttHandler(context: Context) {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
+    // НОВАЯ ФУНКЦИЯ: теперь мы можем слушать что угодно
+    fun subscribe(topic: String) {
+        if (client.isConnected) {
+            client.subscribe(topic, 0)
+        }
+    }
+
     fun publish(topic: String, payload: String) {
         if (client.isConnected) {
             client.publish(topic, MqttMessage(payload.toByteArray()))
         }
     }
-
-
 }

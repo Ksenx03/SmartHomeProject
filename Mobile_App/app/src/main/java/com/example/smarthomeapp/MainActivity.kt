@@ -22,7 +22,7 @@ class MainActivity : AppCompatActivity() {
         checkNotificationPermission()
 
         // 2. ЗАПУСК ФОНОВОЙ ОХРАНЫ
-        val serviceIntent = Intent(this, MqttNotificationService::class.java)
+        val serviceIntent = Intent(this, MgttNotificationService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {

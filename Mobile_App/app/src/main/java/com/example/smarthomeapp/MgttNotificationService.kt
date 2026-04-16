@@ -13,7 +13,7 @@ import androidx.core.app.NotificationCompat
 import java.text.SimpleDateFormat
 import java.util.*
 
-class MqttNotificationService : Service() {
+class MgttNotificationService : Service() {
 
     private lateinit var mqttHandler: MqttHandler
     // Zmieniamy ID kanału, aby wymusić odświeżenie ustawień w systemie Android
