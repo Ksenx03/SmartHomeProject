@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.smarthomeapp">
+    package="com.example.smarthomeapp" >
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -19,47 +19,32 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SmartHomeApp"
-        android:usesCleartextTraffic="true">
-        <activity
+        android:usesCleartextTraffic="true" >
+
+        <service
             android:name=".MgttNotificationService"
-            android:exported="false" />
-        <activity
-            android:name=".BlindsActivity"
-            android:exported="false" />
-        <activity
-            android:name=".LightingActivity"
-            android:exported="false" />
-        <activity
-            android:name=".AccessActivity"
-            android:exported="false" />
-        <activity
-            android:name=".SensorsActivity"
-            android:exported="false" />
-        <activity
-            android:name=".VentilationActivity"
-            android:exported="false" />
-        <activity
-            android:name=".HeatingActivity"
-            android:exported="false" />
-        <activity
-            android:name=".DashboardActivity"
-            android:exported="false" />
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service android:name="org.eclipse.paho.android.service.MqttService" />
+
+        <activity android:name=".BlindsActivity" android:exported="false" />
+        <activity android:name=".LightingActivity" android:exported="false" />
+        <activity android:name=".AccessActivity" android:exported="false" />
+        <activity android:name=".SensorsActivity" android:exported="false" />
+        <activity android:name=".VentilationActivity" android:exported="false" />
+        <activity android:name=".HeatingActivity" android:exported="false" />
+        <activity android:name=".DashboardActivity" android:exported="false" />
+
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <service android:name="org.eclipse.paho.android.service.MqttService" />
-        <service
-            android:name=".MqttNotificationService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
     </application>
-
 </manifest>
