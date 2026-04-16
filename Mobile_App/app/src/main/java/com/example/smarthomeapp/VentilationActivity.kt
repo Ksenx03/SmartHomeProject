@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log // Добавил импорт для логов
 import android.view.animation.Animation
 import android.view.animation.LinearInterpolator
 import android.view.animation.RotateAnimation
@@ -37,7 +38,18 @@ class VentilationActivity : AppCompatActivity() {
         loadSavedState()
 
         mqttHandler = MqttHandler(this)
-        mqttHandler.connect { }
+
+        // --- ИСПРАВЛЕННЫЙ ВЫЗОВ CONNECT ---
+        mqttHandler.connect(
+            onConnected = {
+                Log.d("MQTT", "Ventilation Activity Connected")
+            },
+            onMessage = { msg ->
+                // Если макет будет присылать реальную скорость вентилятора,
+                // её можно будет обрабатывать здесь
+                Log.d("MQTT", "Received fan data: $msg")
+            }
+        )
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { finish() }
         ivFanIcon = findViewById(R.id.ivFanIcon)
@@ -104,7 +116,6 @@ class VentilationActivity : AppCompatActivity() {
     }
 
     private fun updateUIState() {
-        // Updated to English statuses
         tvStatus.text = if (isFanOn == "ON") "Running" else "Stopped"
         tvSpeedPercent.text = "$currentSpeed%"
         sbSpeed.progress = currentSpeed

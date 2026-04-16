@@ -6,6 +6,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.util.Log // Добавил импорт логов
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -23,9 +24,9 @@ class LightingActivity : AppCompatActivity() {
     private lateinit var sbBrightness: SeekBar
     private lateinit var modeButtons: List<Button>
 
-    // Цвета из твоего идеального дизайна (Heating)
-    private val heatingGreen = Color.parseColor("#00695C") // Насыщенный бирюзовый
-    private val buttonBgInactive = Color.parseColor("#4D00695C") // Полупрозрачный бирюзовый
+    // Цвета из дизайна
+    private val heatingGreen = Color.parseColor("#00695C")
+    private val buttonBgInactive = Color.parseColor("#4D00695C")
 
     // Переменные состояния
     private var isLightOn = "OFF"
@@ -33,7 +34,6 @@ class LightingActivity : AppCompatActivity() {
     private var currentR = 255; private var currentG = 255; private var currentB = 255
     private var currentMode = "none"
 
-    // Палитра цветов (24 штуки)
     private val colorPalette = arrayOf(
         "#FF0000", "#FF4500", "#FF8C00", "#FFA500", "#FFD700", "#FFFF00",
         "#CCFF00", "#80FF00", "#00FF00", "#00FF80", "#00FFFF", "#00CCFF",
@@ -45,41 +45,45 @@ class LightingActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_lighting)
 
-        // 1. Инициализация памяти и MQTT
         prefs = getSharedPreferences("SmartHomePrefs", Context.MODE_PRIVATE)
         loadSavedState()
 
         mqttHandler = MqttHandler(this)
-        mqttHandler.connect { }
 
-        // 2. Поиск элементов на экране
+        // --- ИСПРАВЛЕННЫЙ ВЫЗОВ CONNECT ---
+        mqttHandler.connect(
+            onConnected = {
+                Log.d("MQTT", "Lighting Activity Connected")
+            },
+            onMessage = { msg ->
+                // Здесь можно добавить обработку, если макет шлет текущее состояние света
+                Log.d("MQTT", "Received light status: $msg")
+            }
+        )
+
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { finish() }
         ivLightButton = findViewById(R.id.ivLightButton)
         tvStatus = findViewById(R.id.tvLightStatus)
         tvBrightnessPercent = findViewById(R.id.tvBrightnessPercent)
         sbBrightness = findViewById(R.id.brightnessSeekBar)
 
-        // Список кнопок спецэффектов для удобного управления
         modeButtons = listOf(
             findViewById(R.id.btnDisco),
             findViewById(R.id.btnRelax),
             findViewById(R.id.btnStrobe)
         )
 
-        // 3. Настройка слушателей
         setupMainLightButton()
         setupBrightnessControl()
         setupColorGrid()
         setupSpecialModes()
 
-        // 4. Первичное обновление экрана
         updateUIState()
     }
 
     private fun setupMainLightButton() {
         ivLightButton.setOnClickListener {
             isLightOn = if (isLightOn == "OFF") "ON" else "OFF"
-            // Если выключаем свет, сбрасываем и режим
             if (isLightOn == "OFF") currentMode = "none"
 
             updateUIState()
@@ -123,7 +127,6 @@ class LightingActivity : AppCompatActivity() {
             colorView.background = drawable
 
             colorView.setOnClickListener {
-                // При выборе цвета режим "Диско" и т.д. выключается
                 currentMode = "none"
                 isLightOn = "ON"
 
@@ -148,11 +151,7 @@ class LightingActivity : AppCompatActivity() {
         modeButtons.forEach { btn ->
             btn.setOnClickListener {
                 val clickedMode = btn.text.toString().lowercase()
-
-                // Логика переключателя: если нажали на уже активный — выключаем
                 currentMode = if (currentMode == clickedMode) "none" else clickedMode
-
-                // Если режим выбран, свет должен быть включен
                 if (currentMode != "none") isLightOn = "ON"
 
                 updateUIState()
@@ -163,10 +162,7 @@ class LightingActivity : AppCompatActivity() {
     }
 
     private fun updateUIState() {
-        // Статус ON/OFF
         tvStatus.text = isLightOn
-
-        // Вид лампочки
         if (isLightOn == "ON") {
             tvStatus.setTextColor(heatingGreen)
             ivLightButton.setColorFilter(Color.rgb(currentR, currentG, currentB))
@@ -175,15 +171,12 @@ class LightingActivity : AppCompatActivity() {
             ivLightButton.setColorFilter(Color.parseColor("#4400695C"))
         }
 
-        // Обновление кнопок спецэффектов (Выделение цветом)
         modeButtons.forEach { btn ->
             val btnMode = btn.text.toString().lowercase()
             if (currentMode == btnMode && isLightOn == "ON") {
-                // АКТИВНЫЙ РЕЖИМ: Темно-зеленый фон, белый текст
                 btn.backgroundTintList = ColorStateList.valueOf(heatingGreen)
                 btn.setTextColor(Color.WHITE)
             } else {
-                // НЕАКТИВНЫЙ РЕЖИМ: Полупрозрачный фон, зеленый текст
                 btn.backgroundTintList = ColorStateList.valueOf(buttonBgInactive)
                 btn.setTextColor(heatingGreen)
             }
@@ -213,12 +206,12 @@ class LightingActivity : AppCompatActivity() {
     private fun sendCommand() {
         val topic = "makieta/oswietlenie/ustaw"
         val payload = """{
-        "target":"wew",
-        "state":"$isLightOn",
-        "mode":"$currentMode",
-        "brightness":$currentBrightness,
-        "color":{"r":$currentR,"g":$currentG,"b":$currentB}
-    }""".trimIndent()
+            "target":"wew",
+            "state":"$isLightOn",
+            "mode":"$currentMode",
+            "brightness":$currentBrightness,
+            "color":{"r":$currentR,"g":$currentG,"b":$currentB}
+        }""".trimIndent()
         mqttHandler.publish(topic, payload)
     }
 }

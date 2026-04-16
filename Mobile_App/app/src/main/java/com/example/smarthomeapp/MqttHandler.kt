@@ -6,44 +6,40 @@ import org.eclipse.paho.client.mqttv3.*
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 
 class MqttHandler(context: Context) {
-    private val serverUri = "tcp://172.20.10.3:1883"
-    private val clientId = "Xiaomi_Client_" + System.currentTimeMillis() // Уникальный ID, чтобы Малинка не выкидывала
-
+    private val serverUri = "tcp://172.20.10.3:1883" // ПРОВЕРЬ СВОЙ IP!
+    private val clientId = "AndroidClient_" + System.currentTimeMillis()
     private val client = MqttAsyncClient(serverUri, clientId, MemoryPersistence())
 
-    fun connect(onConnected: () -> Unit) {
-        if (client.isConnected) {
-            onConnected()
-            return
+    fun connect(onConnected: () -> Unit, onMessage: (String) -> Unit) {
+        val options = MqttConnectOptions().apply {
+            isAutomaticReconnect = true
+            isCleanSession = true
         }
 
-        val options = MqttConnectOptions()
-        options.isAutomaticReconnect = true
-        options.isCleanSession = true // Очищаем старые сессии для скорости
-        options.connectionTimeout = 10
+        client.setCallback(object : MqttCallback {
+            override fun messageArrived(topic: String?, message: MqttMessage?) {
+                onMessage(message.toString())
+            }
+            override fun connectionLost(cause: Throwable?) {}
+            override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+        })
 
         try {
             client.connect(options, null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken?) {
-                    Log.d("MQTT_TAG", "Подключено!")
+                    client.subscribe("makieta/access/status", 0)
                     onConnected()
                 }
-                override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
-                    Log.e("MQTT_TAG", "Ошибка: ${exception?.message}")
-                }
+                override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {}
             })
         } catch (e: Exception) { e.printStackTrace() }
     }
 
     fun publish(topic: String, payload: String) {
-        try {
-            if (client.isConnected) {
-                val message = MqttMessage(payload.toByteArray())
-                message.qos = 0 // САМОЕ ВАЖНОЕ: 0 — это мгновенная отправка без задержек
-                message.isRetained = false
-                client.publish(topic, message)
-                Log.d("MQTT_TAG", "Пуля улетела: $payload")
-            }
-        } catch (e: Exception) { Log.e("MQTT_TAG", "Ошибка отправки: ${e.message}") }
+        if (client.isConnected) {
+            client.publish(topic, MqttMessage(payload.toByteArray()))
+        }
     }
+
+
 }
