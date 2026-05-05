@@ -138,7 +138,7 @@
                         android:id="@+id/ivWater"
                         android:src="@drawable/ic_water_alarm"
                         style="@style/SmartIconStyle" />
-                    <TextView android:text="Water Sensor" style="@style/SmartTextStyle" />
+                    <TextView android:text="Sensors" style="@style/SmartTextStyle" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 

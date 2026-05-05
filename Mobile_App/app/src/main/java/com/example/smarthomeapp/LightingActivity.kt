@@ -1,51 +1,217 @@
 package com.example.smarthomeapp
 
+import android.content.Context
+import android.content.SharedPreferences
+import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.util.Log // Добавил импорт логов
 import android.view.View
-import android.widget.ImageView
-import android.widget.SeekBar
-import android.widget.TextView
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.cardview.widget.CardView
+import androidx.core.content.ContextCompat
 
 class LightingActivity : AppCompatActivity() {
+
+    private lateinit var mqttHandler: MqttHandler
+    private lateinit var prefs: SharedPreferences
+
+    // Элементы интерфейса
+    private lateinit var ivLightButton: ImageView
+    private lateinit var tvStatus: TextView
+    private lateinit var tvBrightnessPercent: TextView
+    private lateinit var sbBrightness: SeekBar
+    private lateinit var modeButtons: List<Button>
+
+    // Цвета из дизайна
+    private val heatingGreen = Color.parseColor("#00695C")
+    private val buttonBgInactive = Color.parseColor("#4D00695C")
+
+    // Переменные состояния
+    private var isLightOn = "OFF"
+    private var currentBrightness = 100
+    private var currentR = 255; private var currentG = 255; private var currentB = 255
+    private var currentMode = "none"
+
+    private val colorPalette = arrayOf(
+        "#FF0000", "#FF4500", "#FF8C00", "#FFA500", "#FFD700", "#FFFF00",
+        "#CCFF00", "#80FF00", "#00FF00", "#00FF80", "#00FFFF", "#00CCFF",
+        "#0066FF", "#0000FF", "#4B0082", "#7B00FF", "#B000FF", "#FF00FF",
+        "#FF0080", "#FF0040", "#8B4513", "#708090", "#FFFFFF", "#333333"
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_lighting)
 
-        val btnBack = findViewById<ImageView>(R.id.btnBack)
-        val colorPreview = findViewById<CardView>(R.id.colorPreviewCard)
-        val sbBrightness = findViewById<SeekBar>(R.id.sbBrightness)
-        val tvBrightness = findViewById<TextView>(R.id.tvBrightnessLabel)
+        prefs = getSharedPreferences("SmartHomePrefs", Context.MODE_PRIVATE)
+        loadSavedState()
 
-        btnBack.setOnClickListener { finish() }
+        mqttHandler = MqttHandler(this)
 
-        // Список ID наших цветных квадратиков
-        val colorIds = listOf(
-            R.id.colorRed, R.id.colorGreen, R.id.colorBlue, R.id.colorYellow,
-            R.id.colorPurple, R.id.colorOrange, R.id.colorCyan, R.id.colorWhite
+        // --- ИСПРАВЛЕННЫЙ ВЫЗОВ CONNECT ---
+        mqttHandler.connect(
+            onConnected = {
+                Log.d("MQTT", "Lighting Activity Connected")
+            },
+            onMessage = { msg ->
+                // Здесь можно добавить обработку, если макет шлет текущее состояние света
+                Log.d("MQTT", "Received light status: $msg")
+            }
         )
 
-        // Вешаем один обработчик на все цвета
-        for (id in colorIds) {
-            findViewById<View>(id).setOnClickListener { view ->
-                val color = (view.background as ColorDrawable).color
-                colorPreview.setCardBackgroundColor(color)
+        findViewById<ImageView>(R.id.btnBack).setOnClickListener { finish() }
+        ivLightButton = findViewById(R.id.ivLightButton)
+        tvStatus = findViewById(R.id.tvLightStatus)
+        tvBrightnessPercent = findViewById(R.id.tvBrightnessPercent)
+        sbBrightness = findViewById(R.id.brightnessSeekBar)
+
+        modeButtons = listOf(
+            findViewById(R.id.btnDisco),
+            findViewById(R.id.btnRelax),
+            findViewById(R.id.btnStrobe)
+        )
+
+        setupMainLightButton()
+        setupBrightnessControl()
+        setupColorGrid()
+        setupSpecialModes()
+
+        updateUIState()
+    }
+
+    private fun setupMainLightButton() {
+        ivLightButton.setOnClickListener {
+            isLightOn = if (isLightOn == "OFF") "ON" else "OFF"
+            if (isLightOn == "OFF") currentMode = "none"
+
+            updateUIState()
+            saveState()
+            sendCommand()
+        }
+    }
+
+    private fun setupBrightnessControl() {
+        sbBrightness.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, p: Int, f: Boolean) {
+                currentBrightness = p
+                tvBrightnessPercent.text = "$p%"
+            }
+            override fun onStartTrackingTouch(s: SeekBar?) {}
+            override fun onStopTrackingTouch(s: SeekBar?) {
+                saveState()
+                sendCommand()
+            }
+        })
+    }
+
+    private fun setupColorGrid() {
+        val grid = findViewById<GridLayout>(R.id.colorGrid)
+        grid.removeAllViews()
+
+        val density = resources.displayMetrics.density
+        val size = (40 * density).toInt()
+        val margin = (5 * density).toInt()
+
+        for (colorHex in colorPalette) {
+            val colorView = View(this)
+            val params = GridLayout.LayoutParams()
+            params.width = size
+            params.height = size
+            params.setMargins(margin, margin, margin, margin)
+            colorView.layoutParams = params
+
+            val drawable = ContextCompat.getDrawable(this, R.drawable.color_circle)?.mutate() as GradientDrawable
+            drawable.setColor(Color.parseColor(colorHex))
+            colorView.background = drawable
+
+            colorView.setOnClickListener {
+                currentMode = "none"
+                isLightOn = "ON"
+
+                val color = Color.parseColor(colorHex)
+                currentR = Color.red(color)
+                currentG = Color.green(color)
+                currentB = Color.blue(color)
+
+                updateUIState()
+                saveState()
+                sendCommand()
+
+                colorView.animate().scaleX(0.8f).scaleY(0.8f).setDuration(100).withEndAction {
+                    colorView.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
+                }.start()
+            }
+            grid.addView(colorView)
+        }
+    }
+
+    private fun setupSpecialModes() {
+        modeButtons.forEach { btn ->
+            btn.setOnClickListener {
+                val clickedMode = btn.text.toString().lowercase()
+                currentMode = if (currentMode == clickedMode) "none" else clickedMode
+                if (currentMode != "none") isLightOn = "ON"
+
+                updateUIState()
+                saveState()
+                sendCommand()
+            }
+        }
+    }
+
+    private fun updateUIState() {
+        tvStatus.text = isLightOn
+        if (isLightOn == "ON") {
+            tvStatus.setTextColor(heatingGreen)
+            ivLightButton.setColorFilter(Color.rgb(currentR, currentG, currentB))
+        } else {
+            tvStatus.setTextColor(Color.GRAY)
+            ivLightButton.setColorFilter(Color.parseColor("#4400695C"))
+        }
+
+        modeButtons.forEach { btn ->
+            val btnMode = btn.text.toString().lowercase()
+            if (currentMode == btnMode && isLightOn == "ON") {
+                btn.backgroundTintList = ColorStateList.valueOf(heatingGreen)
+                btn.setTextColor(Color.WHITE)
+            } else {
+                btn.backgroundTintList = ColorStateList.valueOf(buttonBgInactive)
+                btn.setTextColor(heatingGreen)
             }
         }
 
-        // Логика яркости
-        sbBrightness.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                tvBrightness.text = "Brightness: $progress%"
-                // Меняем прозрачность карточки (имитация яркости)
-                colorPreview.alpha = progress / 100f
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+        tvBrightnessPercent.text = "$currentBrightness%"
+        sbBrightness.progress = currentBrightness
+    }
+
+    private fun saveState() {
+        prefs.edit().apply {
+            putString("lightState", isLightOn)
+            putInt("brightness", currentBrightness)
+            putInt("r", currentR); putInt("g", currentG); putInt("b", currentB)
+            putString("mode", currentMode)
+            apply()
+        }
+    }
+
+    private fun loadSavedState() {
+        isLightOn = prefs.getString("lightState", "OFF") ?: "OFF"
+        currentBrightness = prefs.getInt("brightness", 100)
+        currentR = prefs.getInt("r", 255); currentG = prefs.getInt("g", 255); currentB = prefs.getInt("b", 255)
+        currentMode = prefs.getString("mode", "none") ?: "none"
+    }
+
+    private fun sendCommand() {
+        val topic = "makieta/oswietlenie/ustaw"
+        val payload = """{
+            "target":"wew",
+            "state":"$isLightOn",
+            "mode":"$currentMode",
+            "brightness":$currentBrightness,
+            "color":{"r":$currentR,"g":$currentG,"b":$currentB}
+        }""".trimIndent()
+        mqttHandler.publish(topic, payload)
     }
 }
