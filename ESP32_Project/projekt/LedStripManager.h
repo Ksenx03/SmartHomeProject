@@ -23,6 +23,10 @@ private:
 
   AlarmMode currentAlarmMode = NONE;
 
+  String currentWewEffectMode = "none"; 
+  unsigned long lastWewEffectTime = 0;  
+  bool wewStrobeState = false;
+
 public:
   LedStripManager();
   void init();
