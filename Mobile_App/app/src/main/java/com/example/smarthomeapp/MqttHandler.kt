@@ -6,7 +6,7 @@ import org.eclipse.paho.client.mqttv3.*
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 
 class MqttHandler(context: Context) {
-    private val serverUri = "tcp://172.20.10.3:1883"
+    private val serverUri = "tcp://172.20.10.4:1883"
     private val clientId = "AndroidClient_" + System.currentTimeMillis()
     private val client = MqttAsyncClient(serverUri, clientId, MemoryPersistence())
 

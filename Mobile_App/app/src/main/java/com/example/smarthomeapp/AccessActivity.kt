@@ -1,11 +1,17 @@
 package com.example.smarthomeapp
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationCompat
+import java.text.SimpleDateFormat
+import java.util.*
 
 class AccessActivity : AppCompatActivity() {
 
@@ -39,8 +45,12 @@ class AccessActivity : AppCompatActivity() {
         updateUIState()
 
         mqttHandler = MqttHandler(this)
+
+        // ИСПРАВЛЕНО: Теперь при успешном подключении принудительно вызывается подписка
         mqttHandler.connect(
-            onConnected = { },
+            onConnected = {
+                mqttHandler.subscribe("makieta/access/status")
+            },
             onMessage = { msg ->
                 runOnUiThread {
                     handleMqtt(msg)
@@ -69,29 +79,55 @@ class AccessActivity : AppCompatActivity() {
 
     private fun handleMqtt(msg: String) {
         val cleanMsg = msg.trim()
+        val timeStamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+        var logEntry = ""
+
         when (cleanMsg) {
-            "ARMED" -> { isArmed = true; isAlarmActive = false }
-            "DISARMED" -> { isArmed = false; isAlarmActive = false }
-            "ALARM", "DENIED" -> { isAlarmActive = true }
-            "62CB0951" -> { openLockVisual() } // Если приложили твою карту
+            "ARMED" -> {
+                isArmed = true
+                isAlarmActive = false
+                logEntry = "[$timeStamp] System ARMED"
+            }
+            "DISARMED" -> {
+                isArmed = false
+                isAlarmActive = false
+                logEntry = "[$timeStamp] System DISARMED"
+            }
+            "ALARM" -> {
+                isAlarmActive = true
+                logEntry = "[$timeStamp] !!! ALARM TRIGGERED !!!"
+                showNotification("ALERT!", "Wykryto nieautoryzowany ruch!")
+            }
+            "DENIED" -> {
+                isAlarmActive = true
+                logEntry = "[$timeStamp] !!! ACCESS DENIED !!!"
+                showNotification("Odmowa dostępu", "Użyto nieznanej karty RFID!")
+            }
+            "62CB0951" -> {
+                logEntry = "[$timeStamp] Access Granted: Kseniya"
+                openLockVisual()
+            }
         }
+
+        // Сохраняем состояние в историю логов, если пришло важное событие
+        if (logEntry.isNotEmpty()) {
+            saveLogToHistory(logEntry)
+        }
+        saveSecurityState()
         updateUIState()
     }
 
     private fun openLockVisual() {
-        // Меняем картинку на открытый замок
         ivShield.setImageResource(R.drawable.ic_access_open)
         ivShield.setColorFilter(heatingGreen)
 
-        // Через 5 секунд возвращаем закрытый замок
         ivShield.postDelayed({
             ivShield.setImageResource(R.drawable.ic_access_lock)
-            updateUIState() // Возвращаем актуальный цвет (красный или зеленый)
+            updateUIState()
         }, 5000)
     }
 
     private fun updateUIState() {
-        // Если замок сейчас в процессе "открытия" (визуально), не перекрашиваем его сразу
         when {
             isAlarmActive -> {
                 ivShield.setColorFilter(Color.RED)
@@ -128,19 +164,76 @@ class AccessActivity : AppCompatActivity() {
         if (history.isEmpty()) return
 
         history.split("\n").forEach { logLine ->
-            val tv = TextView(this).apply {
-                text = logLine
-                textSize = 14f
-                setPadding(0, 8, 0, 8)
-                setTextColor(if (logLine.contains("!!!")) Color.RED else heatingGreen)
+            if (logLine.trim().isNotEmpty()) {
+                val tv = TextView(this).apply {
+                    text = logLine
+                    textSize = 14f
+                    setPadding(0, 8, 0, 8)
+                    setTextColor(if (logLine.contains("!!!")) Color.RED else heatingGreen)
+                }
+                logsContainer.addView(tv)
             }
-            logsContainer.addView(tv)
         }
+    }
+
+    private fun saveLogToHistory(entry: String) {
+        val prefs = getSharedPreferences("SecurityPrefs", Context.MODE_PRIVATE)
+        val currentHistory = prefs.getString("logHistory", "") ?: ""
+        val newHistory = if (currentHistory.isEmpty()) entry else "$entry\n$currentHistory"
+        prefs.edit().putString("logHistory", newHistory).apply()
     }
 
     private fun loadSecurityState() {
         val prefs = getSharedPreferences("SecurityPrefs", Context.MODE_PRIVATE)
         isArmed = prefs.getBoolean("isArmed", false)
         isAlarmActive = prefs.getBoolean("isAlarmActive", false)
+    }
+
+    private fun saveSecurityState() {
+        getSharedPreferences("SecurityPrefs", Context.MODE_PRIVATE).edit()
+            .putBoolean("isArmed", isArmed)
+            .putBoolean("isAlarmActive", isAlarmActive)
+            .apply()
+    }
+
+    private fun showNotification(title: String, message: String) {
+        val channelId = "SecurityChannel_v3"
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Makieta Security Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Alerts regarding security events like unauthorized movement"
+                enableLights(true)
+                lightColor = Color.RED
+                enableVibration(true)
+                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val fullScreenIntent = android.content.Intent(this, AccessActivity::class.java)
+        val fullScreenPendingIntent = android.app.PendingIntent.getActivity(
+            this,
+            0,
+            fullScreenIntent,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM) // Указываем категорию тревоги/будильника
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setFullScreenIntent(fullScreenPendingIntent, true) // Принудительный Heads-Up
+            .setAutoCancel(true)
+            .build()
+
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 }
