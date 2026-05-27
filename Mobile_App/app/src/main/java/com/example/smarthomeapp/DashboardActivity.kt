@@ -47,7 +47,7 @@ class DashboardActivity : AppCompatActivity() {
                     ivCloud.setColorFilter(Color.parseColor("#4CAF50"))
                 }
 
-                // Подписываемся строго на актуальные топики прошивки Патрика
+                // Подписываемся строго на топики из прошивки Патрика
                 mqttHandler.subscribe("makieta/czujniki/srodowisko")
                 mqttHandler.subscribe("makieta/czujniki/swiatlo")
             },
@@ -108,20 +108,24 @@ class DashboardActivity : AppCompatActivity() {
             if (cleanMsg.startsWith("{")) {
                 val json = JSONObject(cleanMsg)
 
-                // Проверяем температуру (ищет и temp, и temperature на всякий случай)
-                if (json.has("temp") || json.has("temperature")) {
-                    val key = if (json.has("temp")) "temp" else "temperature"
-                    val temperature = json.optString(key, "--")
+                // Прямая проверка ключа "temperature" из файла EnvironmentManager.cpp
+                if (json.has("temperature")) {
+                    val temperature = json.optString("temperature", "--")
+                    tvDashboardTemp.text = "$temperature °C"
+                }
+                // Запасной вариант на всякий случай
+                else if (json.has("temp")) {
+                    val temperature = json.optString("temp", "--")
                     tvDashboardTemp.text = "$temperature °C"
                 }
 
-                // Проверяем люксы с датчика освещенности BH1750
+                // Проверяем люксы с датчика освещенности BH1750 (LightSensorManager.cpp)
                 if (json.has("lux")) {
                     val light = json.optString("lux", "--")
                     tvDashboardLight.text = "$light lx"
                 }
             } else {
-                // Запасной вариант: если данные склеены строкой "24.5;450"
+                // Запасной вариант: если данные вдруг прилетели строкой "24.5;450"
                 if (cleanMsg.contains(";")) {
                     val parts = cleanMsg.split(";")
                     tvDashboardTemp.text = "${parts[0]} °C"
