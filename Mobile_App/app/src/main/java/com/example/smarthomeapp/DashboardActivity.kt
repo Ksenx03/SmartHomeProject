@@ -47,10 +47,9 @@ class DashboardActivity : AppCompatActivity() {
                     ivCloud.setColorFilter(Color.parseColor("#4CAF50"))
                 }
 
-                // Подписываемся на возможные топики публикаций датчиков макета
-                mqttHandler.subscribe("makieta/sensors/current")
-                mqttHandler.subscribe("makieta/sensors/status")
-                mqttHandler.subscribe("makieta/environment/status")
+                // Подписываемся строго на актуальные топики прошивки Патрика
+                mqttHandler.subscribe("makieta/czujniki/srodowisko")
+                mqttHandler.subscribe("makieta/czujniki/swiatlo")
             },
             onMessage = { msg ->
                 runOnUiThread {
@@ -109,13 +108,14 @@ class DashboardActivity : AppCompatActivity() {
             if (cleanMsg.startsWith("{")) {
                 val json = JSONObject(cleanMsg)
 
-                // Если прилетел пакет с датчика DHT11 (EnvironmentManager)
-                if (json.has("temperature")) {
-                    val temperature = json.optString("temperature", "--")
+                // Проверяем температуру (ищет и temp, и temperature на всякий случай)
+                if (json.has("temp") || json.has("temperature")) {
+                    val key = if (json.has("temp")) "temp" else "temperature"
+                    val temperature = json.optString(key, "--")
                     tvDashboardTemp.text = "$temperature °C"
                 }
 
-                // Если прилетел пакет с датчика люксов BH1750 (LightSensorManager)
+                // Проверяем люксы с датчика освещенности BH1750
                 if (json.has("lux")) {
                     val light = json.optString("lux", "--")
                     tvDashboardLight.text = "$light lx"
