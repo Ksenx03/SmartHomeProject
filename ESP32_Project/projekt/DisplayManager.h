@@ -13,10 +13,11 @@
 
 // Maszyna stanów dla ekranów
 enum ScreenState {
-    SCREEN_ENV,     // Ekran 1: Temperatura, wilgotność, wentylator
-    SCREEN_LIGHTS,  // Ekran 2: Oświetlenie, jasność
+SCREEN_ENV,     // Ekran 1: Temperatura, wilgotność
+    SCREEN_LIGHTS,  // Ekran 2: Oświetlenie
     SCREEN_ALARM,   // Ekran priorytetowy: Alarm krytyczny
-    SCREEN_RFID     // Ekran priorytetowy: Komunikat z czytnika kart
+    SCREEN_RFID,    // Ekran priorytetowy: Komunikat z czytnika
+    SCREEN_ARMED    // NOWY: Ekran priorytetowy: System uzbrojony
 };
 
 class DisplayManager {
@@ -54,6 +55,7 @@ private:
     void drawLightsScreen();
     void drawAlarmScreen();
     void drawRfidScreen();
+    void drawArmedScreen();
 
 public:
     DisplayManager();
