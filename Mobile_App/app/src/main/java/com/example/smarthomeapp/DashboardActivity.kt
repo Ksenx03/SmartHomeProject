@@ -4,13 +4,17 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.cardview.widget.CardView
+import org.json.JSONObject
 
 class DashboardActivity : AppCompatActivity() {
 
     private lateinit var mqttHandler: MqttHandler
+    private lateinit var tvDashboardTemp: TextView
+    private lateinit var tvDashboardLight: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,10 +25,14 @@ class DashboardActivity : AppCompatActivity() {
         val ivLogout = findViewById<ImageView>(R.id.ivLogout)
         val ivCloud = findViewById<ImageView>(R.id.ivConnectionStatus)
 
-        // Инициализация карточек (ID берем из твоего XML)
+        // Инициализация полей климата и освещения
+        tvDashboardTemp = findViewById(R.id.tvDashboardTemp)
+        tvDashboardLight = findViewById(R.id.tvDashboardLight)
+
+        // Инициализация карточек
         val btnHeating = findViewById<CardView>(R.id.btnHeating)
         val btnVentilation = findViewById<CardView>(R.id.btnVentilation)
-        val btnSensors = findViewById<CardView>(R.id.btnWater) // Это наша кнопка Sensors
+        val btnSensors = findViewById<CardView>(R.id.btnWater)
         val btnAccess = findViewById<CardView>(R.id.btnAccess)
         val btnLighting = findViewById<CardView>(R.id.btnLighting)
         val btnBlinds = findViewById<CardView>(R.id.btnBlinds)
@@ -35,18 +43,24 @@ class DashboardActivity : AppCompatActivity() {
         mqttHandler.connect(
             onConnected = {
                 runOnUiThread {
-                    // Облачко становится зеленым при успехе
+                    // Облачко становится зеленым при успешном подключении
                     ivCloud.setColorFilter(Color.parseColor("#4CAF50"))
                 }
+
+                // Подписываемся на возможные топики публикаций датчиков макета
+                mqttHandler.subscribe("makieta/sensors/current")
+                mqttHandler.subscribe("makieta/sensors/status")
+                mqttHandler.subscribe("makieta/environment/status")
             },
             onMessage = { msg ->
-                // На дашборде сообщения не обрабатываем
+                runOnUiThread {
+                    parseClimateData(msg)
+                }
             }
         )
 
         // --- КНОПКИ ПЕРЕХОДА ---
 
-        // Твоя исправленная кнопка Sensors
         btnSensors.setOnClickListener {
             val intent = Intent(this, SensorsActivity::class.java)
             startActivity(intent)
@@ -64,7 +78,6 @@ class DashboardActivity : AppCompatActivity() {
             startActivity(Intent(this, VentilationActivity::class.java))
         }
 
-        // Добавим остальные, чтобы не пустовали (если файлы созданы)
         btnHeating.setOnClickListener {
             startActivity(Intent(this, HeatingActivity::class.java))
         }
@@ -86,6 +99,37 @@ class DashboardActivity : AppCompatActivity() {
             } else {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             }
+        }
+    }
+
+    // Разбор климатических данных строго под структуру C++ файлов Патрика
+    private fun parseClimateData(msg: String) {
+        try {
+            val cleanMsg = msg.trim()
+            if (cleanMsg.startsWith("{")) {
+                val json = JSONObject(cleanMsg)
+
+                // Если прилетел пакет с датчика DHT11 (EnvironmentManager)
+                if (json.has("temperature")) {
+                    val temperature = json.optString("temperature", "--")
+                    tvDashboardTemp.text = "$temperature °C"
+                }
+
+                // Если прилетел пакет с датчика люксов BH1750 (LightSensorManager)
+                if (json.has("lux")) {
+                    val light = json.optString("lux", "--")
+                    tvDashboardLight.text = "$light lx"
+                }
+            } else {
+                // Запасной вариант: если данные склеены строкой "24.5;450"
+                if (cleanMsg.contains(";")) {
+                    val parts = cleanMsg.split(";")
+                    tvDashboardTemp.text = "${parts[0]} °C"
+                    tvDashboardLight.text = "${parts[1]} lx"
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }

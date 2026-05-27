@@ -6,11 +6,12 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.util.Log // Добавил импорт логов
+import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.material.tabs.TabLayout
 
 class LightingActivity : AppCompatActivity() {
 
@@ -23,12 +24,16 @@ class LightingActivity : AppCompatActivity() {
     private lateinit var tvBrightnessPercent: TextView
     private lateinit var sbBrightness: SeekBar
     private lateinit var modeButtons: List<Button>
+    private lateinit var tabLayout: TabLayout
 
     // Цвета из дизайна
     private val heatingGreen = Color.parseColor("#00695C")
     private val buttonBgInactive = Color.parseColor("#4D00695C")
 
-    // Переменные состояния
+    // Текущая выбранная зона управления ("wew" или "zew")
+    private var currentTarget = "wew"
+
+    // Переменные состояния (теперь обновляются динамически из памяти)
     private var isLightOn = "OFF"
     private var currentBrightness = 100
     private var currentR = 255; private var currentG = 255; private var currentB = 255
@@ -46,19 +51,14 @@ class LightingActivity : AppCompatActivity() {
         setContentView(R.layout.activity_lighting)
 
         prefs = getSharedPreferences("SmartHomePrefs", Context.MODE_PRIVATE)
-        loadSavedState()
+
+        // По умолчанию загружаем внутренний свет
+        loadSavedState("wew")
 
         mqttHandler = MqttHandler(this)
-
-        // --- ИСПРАВЛЕННЫЙ ВЫЗОВ CONNECT ---
         mqttHandler.connect(
-            onConnected = {
-                Log.d("MQTT", "Lighting Activity Connected")
-            },
-            onMessage = { msg ->
-                // Здесь можно добавить обработку, если макет шлет текущее состояние света
-                Log.d("MQTT", "Received light status: $msg")
-            }
+            onConnected = { Log.d("MQTT", "Lighting Activity Connected") },
+            onMessage = { msg -> Log.d("MQTT", "Received light status: $msg") }
         )
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { finish() }
@@ -66,6 +66,7 @@ class LightingActivity : AppCompatActivity() {
         tvStatus = findViewById(R.id.tvLightStatus)
         tvBrightnessPercent = findViewById(R.id.tvBrightnessPercent)
         sbBrightness = findViewById(R.id.brightnessSeekBar)
+        tabLayout = findViewById(R.id.tabLightTarget)
 
         modeButtons = listOf(
             findViewById(R.id.btnDisco),
@@ -73,6 +74,7 @@ class LightingActivity : AppCompatActivity() {
             findViewById(R.id.btnStrobe)
         )
 
+        setupTargetTabs()
         setupMainLightButton()
         setupBrightnessControl()
         setupColorGrid()
@@ -81,13 +83,29 @@ class LightingActivity : AppCompatActivity() {
         updateUIState()
     }
 
+    // Логика работы вкладок Внутри / Снаружи
+    private fun setupTargetTabs() {
+        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                // Меняем цель в зависимости от выбранной вкладки
+                currentTarget = if (tab?.position == 0) "wew" else "zew"
+
+                // Переключаем настройки: загружаем состояние и обновляем экран
+                loadSavedState(currentTarget)
+                updateUIState()
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
+    }
+
     private fun setupMainLightButton() {
         ivLightButton.setOnClickListener {
             isLightOn = if (isLightOn == "OFF") "ON" else "OFF"
             if (isLightOn == "OFF") currentMode = "none"
 
             updateUIState()
-            saveState()
+            saveState(currentTarget)
             sendCommand()
         }
     }
@@ -100,7 +118,7 @@ class LightingActivity : AppCompatActivity() {
             }
             override fun onStartTrackingTouch(s: SeekBar?) {}
             override fun onStopTrackingTouch(s: SeekBar?) {
-                saveState()
+                saveState(currentTarget)
                 sendCommand()
             }
         })
@@ -136,7 +154,7 @@ class LightingActivity : AppCompatActivity() {
                 currentB = Color.blue(color)
 
                 updateUIState()
-                saveState()
+                saveState(currentTarget)
                 sendCommand()
 
                 colorView.animate().scaleX(0.8f).scaleY(0.8f).setDuration(100).withEndAction {
@@ -155,7 +173,7 @@ class LightingActivity : AppCompatActivity() {
                 if (currentMode != "none") isLightOn = "ON"
 
                 updateUIState()
-                saveState()
+                saveState(currentTarget)
                 sendCommand()
             }
         }
@@ -186,27 +204,33 @@ class LightingActivity : AppCompatActivity() {
         sbBrightness.progress = currentBrightness
     }
 
-    private fun saveState() {
+    // Сохраняем состояние с префиксом зоны (wew_ или zew_)
+    private fun saveState(target: String) {
         prefs.edit().apply {
-            putString("lightState", isLightOn)
-            putInt("brightness", currentBrightness)
-            putInt("r", currentR); putInt("g", currentG); putInt("b", currentB)
-            putString("mode", currentMode)
+            putString("${target}_lightState", isLightOn)
+            putInt("${target}_brightness", currentBrightness)
+            putInt("${target}_r", currentR)
+            putInt("${target}_g", currentG)
+            putInt("${target}_b", currentB)
+            putString("${target}_mode", currentMode)
             apply()
         }
     }
 
-    private fun loadSavedState() {
-        isLightOn = prefs.getString("lightState", "OFF") ?: "OFF"
-        currentBrightness = prefs.getInt("brightness", 100)
-        currentR = prefs.getInt("r", 255); currentG = prefs.getInt("g", 255); currentB = prefs.getInt("b", 255)
-        currentMode = prefs.getString("mode", "none") ?: "none"
+    // Загружаем состояние с префиксом зоны (wew_ или zew_)
+    private fun loadSavedState(target: String) {
+        isLightOn = prefs.getString("${target}_lightState", "OFF") ?: "OFF"
+        currentBrightness = prefs.getInt("${target}_brightness", 100)
+        currentR = prefs.getInt("${target}_r", 255)
+        currentG = prefs.getInt("${target}_g", 255)
+        currentB = prefs.getInt("${target}_b", 255)
+        currentMode = prefs.getString("${target}_mode", "none") ?: "none"
     }
 
     private fun sendCommand() {
         val topic = "makieta/oswietlenie/ustaw"
         val payload = """{
-            "target":"wew",
+            "target":"$currentTarget",
             "state":"$isLightOn",
             "mode":"$currentMode",
             "brightness":$currentBrightness,

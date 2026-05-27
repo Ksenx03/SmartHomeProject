@@ -24,6 +24,26 @@
                 android:layout_alignParentStart="true" />
         </RelativeLayout>
 
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabLightTarget"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@android:color/transparent"
+            app:tabSelectedTextColor="#00695C"
+            app:tabTextColor="#4D00695C"
+            app:tabIndicatorColor="#00695C"
+            app:tabRippleColor="@android:color/transparent">
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Indoor" />
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Outdoor" />
+        </com.google.android.material.tabs.TabLayout>
+
         <ImageView
             android:id="@+id/ivLightButton"
             android:layout_width="140dp"
