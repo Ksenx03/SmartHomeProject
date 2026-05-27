@@ -62,39 +62,42 @@ void LedStripManager::init() {
 // }
 
 void LedStripManager::processCommand(String jsonCommand) {
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, jsonCommand);
-  if (error) return;
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, jsonCommand);
+    if (error) return;
 
-  String target = doc["target"];
+    String target = doc["target"];
 
-  // ---- OBSŁUGA PASKA WEWNĘTRZNEGO ----
-  if (target == "wew") {
+    if (target == "wew") {
+    // 1. Сначала считываем режим, если он есть
+    if (doc.containsKey("mode")) {
+      currentWewEffectMode = doc["mode"].as<String>();
+      currentWewEffectMode.toLowerCase();
+    }
+
     if (doc.containsKey("brightness")) {
       stripWew.setBrightness(doc["brightness"]);
     }
 
     if (doc.containsKey("state")) {
       String stateStr = doc["state"].as<String>();
-      stateStr.toUpperCase();  // Zabezpieczenie przed małymi literami
+      stateStr.toUpperCase();
 
       if (stateStr == "ON") {
-        wewIsOn = true;  // <--- TEGO BRAKOWAŁO! Zapisujemy stan w pamięci obiektu
-
-        if (doc.containsKey("color")) {
-          // Jeśli podano kolor, zapalamy na konkretny
+        wewIsOn = true;
+        // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: 
+        // Если мы НЕ в режиме спецэффекта, тогда применяем статический цвет
+        if (currentWewEffectMode == "none" && doc.containsKey("color")) {
           uint32_t color = stripWew.Color(doc["color"]["r"], doc["color"]["g"], doc["color"]["b"]);
           stripWew.fill(color);
-        } else {
-          // Jeśli tylko włączono, ale nie podano koloru - dajemy domyślny biały
-          stripWew.fill(stripWew.Color(255, 255, 255));
         }
-      } else if (stateStr == "OFF") {
-        wewIsOn = false;  // <--- TEGO BRAKOWAŁO!
+      } else {
+        wewIsOn = false;
+        currentWewEffectMode = "none";
         stripWew.fill(stripWew.Color(0, 0, 0));
       }
     }
-    stripWew.show();  // Aktualizujemy fizycznie TYLKO pasek wewnętrzny
+    stripWew.show();
   }
 
   // ---- OBSŁUGA PASKA ZEWNĘTRZNEGO ----
@@ -140,25 +143,56 @@ void LedStripManager::setAlarmMode(AlarmMode mode) {
 }
 
 void LedStripManager::update() {
-  if (currentAlarmMode == NONE) return;
+    if (currentAlarmMode != NONE) {
+        float pulse = (sin(millis() / 200.0) * 102.5) + 152.5;
+        uint8_t br = (uint8_t)pulse;
+        uint32_t color;
+        
+        if (currentAlarmMode == GAS_ALARM) {
+            color = stripWew.Color(br, br, 0); // ЖЕЛТЫЙ (R+G)
+        } else if (currentAlarmMode == WATER_ALARM) {
+            color = stripWew.Color(0, 0, br);  // СИНИЙ (B)
+        } else if (currentAlarmMode == INTRUSION_ALARM) {
+            color = stripWew.Color(br, 0, 0);  // КРАСНЫЙ (R)
+        }
+        
+        stripWew.fill(color);
+        stripZew.fill(color);
+        stripWew.show();
+        stripZew.show();
+        return;
+    }
 
-  // Obliczanie jasności (sinusoida: od 50 do 255)
-  float pulse = (sin(millis() / 200.0) * 102.5) + 152.5;
-  uint8_t brightness = (uint8_t)pulse;
+    // 2. ГЛАВНАЯ ПРОВЕРКА
+    // Если свет выключен или режим "none", мы ничего не увидим
+    if (!wewIsOn) return; 
+    if (currentWewEffectMode == "none") return;
 
-  uint32_t color;
-  if (currentAlarmMode == GAS_ALARM) {
-    color = stripWew.Color(0, brightness, 0);  // Zielony gaz
-  } else if (currentAlarmMode == WATER_ALARM) {
-    color = stripWew.Color(0, 0, brightness);  // Niebieski woda
-  } else if (currentAlarmMode == INTRUSION_ALARM) {
-    // Szybkie, agresywne pulsowanie na włamanie (zwiększony mianownik z 500 do 150)
-    float fastPulse = (sin(millis() / 150.0) * 127.5) + 127.5;
-    color = stripWew.Color((uint8_t)fastPulse, 0, 0);  // Czerwony ruch
-  }
+    unsigned long now = millis();
 
-  stripWew.fill(color);
-  stripZew.fill(color);
-  stripWew.show();
-  stripZew.show();
+    // 3. ЭФФЕКТЫ
+    if (currentWewEffectMode == "disco") {
+        if (now - lastWewEffectTime > 200) {
+            Serial.println("RUNNING: Disco Effect"); // Маячок!
+            uint32_t discoColor = stripWew.Color(random(255), random(255), random(255));
+            stripWew.fill(discoColor);
+            stripWew.show();
+            lastWewEffectTime = now;
+        }
+    } 
+    else if (currentWewEffectMode == "strobe") {
+        if (now - lastWewEffectTime > 80) {
+            Serial.println("RUNNING: Strobe Effect"); // Маячок!
+            wewStrobeState = !wewStrobeState;
+            stripWew.fill(wewStrobeState ? stripWew.Color(255, 255, 255) : 0);
+            stripWew.show();
+            lastWewEffectTime = now;
+        }
+    } 
+    else if (currentWewEffectMode == "relax") {
+        // Тут мы не принтуем постоянно, чтобы не спамить в консоль
+        float breath = (sin(now / 1000.0) * 80) + 100;
+        stripWew.fill(stripWew.Color((uint8_t)breath, (uint8_t)(breath * 0.3), 0));
+        stripWew.show();
+    }
 }

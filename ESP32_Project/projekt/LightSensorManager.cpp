@@ -6,27 +6,37 @@ LightSensorManager::LightSensorManager() {
 }
 
 void LightSensorManager::init() {
-    // Rozpoczęcie pracy magistrali I2C (Domyślnie piny: SDA=21, SCL=22)
     Wire.begin(); 
     
-    // Inicjalizacja czujnika BH1750
-    if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
-        Serial.println("Czujnik BH1750 zainicjowany poprawnie!");
+    // Stabilizacja magistrali I2C przed pierwszą komunikacją
+    delay(100);
+    
+    Serial.println("[BH1750] Proba inicjalizacji czujnika swiatla...");
+    
+    // ZMIANA: Użycie trybu MODE_2, który jest kompatybilny z tanimi klonami z Aliexpress
+    if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE_2)) {
+        Serial.println("[BH1750] SUKCES: Czujnik BH1750 zainicjowany (Tryb: MODE_2)!");
     } else {
-        Serial.println("Blad inicjalizacji BH1750! Sprawdz kable SDA i SCL.");
+        Serial.println("[BH1750] BLAD KRYTYCZNY: Nie wykryto BH1750!");
     }
 }
 
 bool LightSensorManager::loop() {
+    // Sprawdzanie co 2 sekundy
     if (millis() - lastReadTime >= readInterval) {
         lastReadTime = millis();
         
-        // Odczyt poziomu światła w Luksach
+        // Odczyt poziomu światła
         currentLux = lightMeter.readLightLevel();
 
-        // Jeśli czujnik jest odłączony, biblioteka często zwraca -1 lub -2
+        // Agresywne logowanie do terminala
+        Serial.print("[BH1750] Aktualny odczyt z czujnika: ");
+        Serial.print(currentLux);
+        Serial.println(" lx");
+
+        // Walidacja błędów biblioteki (wartości ujemne)
         if (currentLux < 0) {
-            Serial.println("Blad odczytu z BH1750");
+            Serial.println("[BH1750] BLAD: Zwrocono wartosc ujemna.");
             return false;
         }
 

@@ -2,31 +2,38 @@
 
 BuzzerManager::BuzzerManager() {
   isBeeping = false;
+  isDingDong = false;
   beepEndTime = 0;
 }
 
 void BuzzerManager::init() {
   pinMode(PIN_BUZZER, OUTPUT);
-  digitalWrite(PIN_BUZZER, LOW);  // Domyślnie buzzer jest wyłączony
+  noTone(PIN_BUZZER);
+  digitalWrite(PIN_BUZZER, LOW);
 }
 
 void BuzzerManager::setBuzzerState(bool state) {
-  digitalWrite(PIN_BUZZER, state ? HIGH : LOW);
+  if (state) {
+    digitalWrite(PIN_BUZZER, HIGH);
+  } else {
+    noTone(PIN_BUZZER); // Обязательно выключаем генератор тона
+    digitalWrite(PIN_BUZZER, LOW);
+  }
 }
 
 void BuzzerManager::triggerBeep(unsigned int durationMs) {
   setBuzzerState(true);
   isBeeping = true;
-  beepEndTime = millis() + durationMs;  // Obliczamy "w przyszłości", kiedy ma się wyłączyć
+  isDingDong = false;
+  beepEndTime = millis() + durationMs;
 }
 
 void BuzzerManager::triggerDoorbell() {
   isBeeping = true;
   isDingDong = true;
-  // Pierwszy ton: "Ding" (wysoki - 988Hz / nuta B5)
-  tone(PIN_BUZZER, 988);
-  nextToneTime = millis() + 300;  // "Ding" trwa 300ms
-  beepEndTime = millis() + 800;   // Całość trwa 800ms
+  tone(PIN_BUZZER, 988); // "Ding"
+  nextToneTime = millis() + 300;
+  beepEndTime = millis() + 800;
 }
 
 void BuzzerManager::processCommand(String jsonCommand) {
@@ -34,29 +41,27 @@ void BuzzerManager::processCommand(String jsonCommand) {
   DeserializationError error = deserializeJson(doc, jsonCommand);
   if (error) return;
 
-  // Obsługa nowej akcji "doorbell" z aplikacji lub MQTT
+  // 1. Дверной звонок
   if (doc.containsKey("action") && doc["action"] == "doorbell") {
     triggerDoorbell();
   }
 
-  // 1. Zmiana ciągłego stanu (np. włączenie/wyłączenie alarmu pożarowego)
+  // 2. Управление состоянием (Alarm / Manual OFF)
   if (doc.containsKey("state")) {
     bool state = (doc["state"] == "ON");
-    setBuzzerState(state);
-    isBeeping = false;  // Jeśli włączamy alarm na stałe, anulujemy tryb "chwilowego pikania"
+    if (state) {
+      tone(PIN_BUZZER, 2000); // Постоянный писк
+    } else {
+      noTone(PIN_BUZZER);
+      digitalWrite(PIN_BUZZER, LOW);
+      isBeeping = false;     // Останавливаем все таймеры
+      isDingDong = false;
+    }
   }
 
-  if (doc.containsKey("state")) {
-    bool state = (doc["state"] == "ON");
-    if (state) tone(PIN_BUZZER, 2000);  // Stały pisk alarmowy
-    else noTone(PIN_BUZZER);
-    isBeeping = false;
-    isDingDong = false;
-  }
-
-  // 2. Obsługa polecenia "piknij na określony czas"
+  // 3. Короткий пик
   if (doc.containsKey("action") && doc["action"] == "beep") {
-    unsigned int duration = doc.containsKey("duration") ? doc["duration"] : 500;  // Domyślnie 500ms
+    unsigned int duration = doc.containsKey("duration") ? doc["duration"] : 500;
     triggerBeep(duration);
   }
 }
@@ -66,18 +71,15 @@ void BuzzerManager::loop() {
 
   unsigned long now = millis();
 
-  // Logika dwutonowa "Ding-Dong"
   if (isDingDong) {
     if (now >= nextToneTime && now < beepEndTime) {
-      // Drugi ton: "Dong" (niższy - 784Hz / nuta G5)
-      tone(PIN_BUZZER, 784);
+      tone(PIN_BUZZER, 784); // "Dong"
     }
   }
 
-  // Wyłączenie dźwięku po zakończeniu
   if (now >= beepEndTime) {
-    noTone(PIN_BUZZER);     // Wyłącza generator PWM (po Ding-Dong i alarmie)
-    setBuzzerState(false);  // DODANE: Zdejmuje stan wysoki (po zwykłym beep)
+    noTone(PIN_BUZZER);
+    digitalWrite(PIN_BUZZER, LOW);
     isBeeping = false;
     isDingDong = false;
   }
