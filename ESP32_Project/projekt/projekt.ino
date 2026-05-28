@@ -15,6 +15,7 @@
 #include "MotionSensorManager.h"
 #include "DoorbellManager.h"
 #include "IndoorEnvironmentManager.h"
+#include "BlindsManager.h"
 
 // --- ZMIENNE STANU (STATE VARIABLES) ---
 const String AUTHORIZED_CARD_1 = "62CB0951";  // Zarejestrowana karta nr 1
@@ -58,6 +59,7 @@ MotionSensorManager motionManager;
 DoorbellManager doorbellManager;
 EnvironmentManager envManager;
 IndoorEnvironmentManager indoorEnvManager;
+BlindsManager blindsManager;
 
 unsigned long lastDisplayUpdate = 0;
 const unsigned long displayUpdateInterval = 2000;
@@ -88,13 +90,67 @@ void clearAllAlarms() {
   connectionManager.publishMessage("makieta/sensors", "GAS_OK");
 }
 
+// // --- CALLBACK MQTT ---
+// void mqttCallback(char* topic, byte* payload, unsigned int length) {
+//   String message = "";
+//   for (int i = 0; i < length; i++) message += (char)payload[i];
+//   String topicStr = String(topic);
+
+//   if (topic == "makieta/serwo/ustaw") {
+//     servoManager.processCommand(payloadStr);   // Drzwi zareagują na target "door"
+//     blindsManager.processCommand(payloadStr);  // Żaluzje zareagują na target "zaluzja"
+//   }
+//   else if (topicStr == "makieta/sensors/ustaw") {
+//     if (message == "water_off") {
+//       waterAlarmActive = false;
+//       waterSilenced = true;
+//       buzzerManager.processCommand("{\"state\": \"OFF\"}");
+//       ledManager.setAlarmMode(NONE);
+//       refreshLights();
+//       connectionManager.publishMessage("makieta/sensors", "WATER_OK");
+//     } else if (message == "gas_off") {
+//       gasAlarmActive = false;
+//       gasSilenced = true;
+//       buzzerManager.processCommand("{\"state\": \"OFF\"}");
+//       ledManager.setAlarmMode(NONE);
+//       refreshLights();
+//       connectionManager.publishMessage("makieta/sensors", "GAS_OK");
+//     }
+//   } else if (topicStr == "makieta/access/ustaw") {
+//     if (message == "unlock") {
+//       servoManager.openDoor();
+//       displayManager.showRfidMessage("Dostep", 2000);
+//     } else if (message == "ARM") {
+//       isSystemArmed = true;
+//       buzzerManager.triggerBeep(500);
+//       connectionManager.publishMessage("makieta/access/status", "ARMED");
+//     } else if (message == "DISARM") {
+//       clearAllAlarms();
+//     }
+//   } else if (topicStr == "makieta/oswietlenie/ustaw")
+//     ledManager.processCommand(message);
+//   else if (topicStr == "makieta/wentylator/ustaw") fanManager.processCommand(message);
+//   else if (topicStr == "makieta/buzzer/ustaw") buzzerManager.processCommand(message);
+//   //else if (topicStr == "makieta/serwo/ustaw") servoManager.processCommand(message);
+// }
+
+
 // --- CALLBACK MQTT ---
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  // 1. Konwersja payloadu (tablicy bajtów) na obiekt String
   String message = "";
   for (int i = 0; i < length; i++) message += (char)payload[i];
+  
+  // 2. Konwersja tematu na obiekt String dla bezpieczniejszych porównań
   String topicStr = String(topic);
 
-  if (topicStr == "makieta/sensors/ustaw") {
+  // --- PARSOWANIE KOMEND ---
+  if (topicStr == "makieta/serwo/ustaw") {
+    // Używamy zmiennej 'message', która zawiera nasz payload
+    servoManager.processCommand(message);   // Drzwi (reagują na target "door" lub brak targetu)
+    blindsManager.processCommand(message);  // Żaluzje (reagują na target "zaluzja")
+  } 
+  else if (topicStr == "makieta/sensors/ustaw") {
     if (message == "water_off") {
       waterAlarmActive = false;
       waterSilenced = true;
@@ -110,7 +166,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       refreshLights();
       connectionManager.publishMessage("makieta/sensors", "GAS_OK");
     }
-  } else if (topicStr == "makieta/access/ustaw") {
+  } 
+  else if (topicStr == "makieta/access/ustaw") {
     if (message == "unlock") {
       servoManager.openDoor();
       displayManager.showRfidMessage("Dostep", 2000);
@@ -121,12 +178,19 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     } else if (message == "DISARM") {
       clearAllAlarms();
     }
-  } else if (topicStr == "makieta/oswietlenie/ustaw")
+  } 
+  else if (topicStr == "makieta/oswietlenie/ustaw") {
     ledManager.processCommand(message);
-  else if (topicStr == "makieta/wentylator/ustaw") fanManager.processCommand(message);
-  else if (topicStr == "makieta/buzzer/ustaw") buzzerManager.processCommand(message);
-  else if (topicStr == "makieta/serwo/ustaw") servoManager.processCommand(message);
+  }
+  else if (topicStr == "makieta/wentylator/ustaw") {
+    fanManager.processCommand(message);
+  }
+  else if (topicStr == "makieta/buzzer/ustaw") {
+    buzzerManager.processCommand(message);
+  }
+  // Usunąłem stąd zduplikowane wywołanie dla "makieta/serwo/ustaw"
 }
+
 
 void setup() {
   Serial.begin(115200);
@@ -164,6 +228,7 @@ void setup() {
   rfidManager.init();
   motionManager.init();
   doorbellManager.init();
+  blindsManager.init();
 
   // Dwa najważniejsze czujniki I2C
   indoorEnvManager.init();
@@ -189,6 +254,7 @@ void loop() {
   gasManager.loop();
   lightManager.loop();
   indoorEnvManager.loop();
+  blindsManager.loop();
 
   // --- HEARTBEAT (raz na 5 sekund) ---
   static unsigned long lastAppUpdate = 0;
@@ -241,6 +307,7 @@ void loop() {
     if (currentLux < LUX_THRESHOLD_NIGHT) {
       if (!isNightMode) {
         isNightMode = true;
+        blindsManager.closeBlinds();
         connectionManager.publishMessage("makieta/system/tryb", "NIGHT");
       }
       int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
@@ -250,6 +317,7 @@ void loop() {
     } else if (currentLux > LUX_THRESHOLD_DAY) {
       if (isNightMode) {
         isNightMode = false;
+        blindsManager.openBlinds();
         connectionManager.publishMessage("makieta/system/tryb", "DAY");
         ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
       }
