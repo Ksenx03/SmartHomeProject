@@ -14,62 +14,61 @@
 #include "DisplayManager.h"
 #include "MotionSensorManager.h"
 #include "DoorbellManager.h"
+#include "IndoorEnvironmentManager.h"
 
 // --- ZMIENNE STANU (STATE VARIABLES) ---
-const String AUTHORIZED_CARD_1 = "62CB0951"; // Zarejestrowana karta nr 1
-const String AUTHORIZED_CARD_2 = "C249BC54"; // Zarejestrowana karta nr 2
+const String AUTHORIZED_CARD_1 = "62CB0951";  // Zarejestrowana karta nr 1
+const String AUTHORIZED_CARD_2 = "C249BC54";  // Zarejestrowana karta nr 2
 
-bool isSystemArmed = false; // Flaga uzbrojenia alarmu
-bool isNightMode = false; // Flaga trybu nocnego
-bool intrusionAlarmActive = false; // Flaga aktywnego alarmu włamania (wykrycie ruchu)
-bool wrongCardAlarm = false; // Flaga alarmu użycia nieautoryzowanej karty RFID
+bool isSystemArmed = false;         // Flaga uzbrojenia alarmu
+bool isNightMode = false;           // Flaga trybu nocnego
+bool intrusionAlarmActive = false;  // Flaga aktywnego alarmu włamania (wykrycie ruchu)
+bool wrongCardAlarm = false;        // Flaga alarmu użycia nieautoryzowanej karty RFID
 
 // Statusy czujników awaryjnych
-bool waterAlarmActive = false; // Alarm zalania
-bool waterSilenced = false; // Wyciszenie alarmu zalania z poziomu aplikacji
-bool gasAlarmActive = false; // Alarm gazu/dymu
-bool gasSilenced = false; // Wyciszenie alarmu gazu z poziomu aplikacji
+bool waterAlarmActive = false;  // Alarm zalania
+bool waterSilenced = false;     // Wyciszenie alarmu zalania z poziomu aplikacji
+bool gasAlarmActive = false;    // Alarm gazu/dymu
+bool gasSilenced = false;       // Wyciszenie alarmu gazu z poziomu aplikacji
 
-// Timery do filtrowania szumów (tzw. debounce / zapobieganie fałszywym alarmom z czujników)
+// Timery do filtrowania szumów (debounce)
 unsigned long waterTriggerTime = 0;
 unsigned long gasTriggerTime = 0;
-const unsigned long alarmDelayThreshold = 500; // Czas (ms), po którym sygnał wyzwala faktyczny alarm
+const unsigned long alarmDelayThreshold = 500;
 
 // Timery i zmienne dla logiki czytnika RFID
-unsigned long cardStartTime = 0; // Czas przyłożenia karty do czytnika
-bool isCardHeld = false; // Flaga określająca, czy karta jest trzymana na czytniku
-const unsigned long armDelay = 5000; // Czas przytrzymania (5s) wymagany do uzbrojenia/rozbrojenia systemu
-unsigned long lastCardSeenTime = 0; // Ostatni moment odczytu (zapobiega "skakaniu" sygnału czytnika)
-bool actionExecuted = false; // Zapobiega wielokrotnemu wykonaniu tej samej akcji przy jednym przyłożeniu karty
+unsigned long cardStartTime = 0;
+bool isCardHeld = false;
+const unsigned long armDelay = 5000;
+unsigned long lastCardSeenTime = 0;
+bool actionExecuted = false;
 
-// Inicjalizacja menedżerów (zarządców) sterujących poszczególnymi elementami makiety
-ConnectionManager connectionManager; // Odpowiada za WiFi oraz brokera MQTT
-LedStripManager ledManager; // Sterowanie paskami LED (oświetlenie wewnętrzne i zewnętrzne)
-BuzzerManager buzzerManager; // Sterowanie głośnikiem/buzzerem (alarmy, dzwonek)
-FanManager fanManager; // Sterowanie wentylatorem / wentylacją
-EnvironmentManager envManager; // Czujnik środowiskowy (temperatura, wilgotność)
-GasSensorManager gasManager; // Czujnik gazu/dymu
-LightSensorManager lightManager; // Czujnik natężenia światła (fotorezystor)
-WaterSensorManager waterManager; // Czujnik poziomu/obecności wody
-RfidManager rfidManager; // Kontrola dostępu - Czytnik RFID
-ServoManager servoManager; // Sterowanie serwomechanizmem (zamek do drzwi)
-DisplayManager displayManager; // Obsługa wyświetlacza OLED na makiecie
-MotionSensorManager motionManager; // Czujnik ruchu (np. PIR)
-DoorbellManager doorbellManager; // Przycisk dzwonka do drzwi
+// Inicjalizacja menedżerów
+ConnectionManager connectionManager;
+LedStripManager ledManager;
+BuzzerManager buzzerManager;
+FanManager fanManager;
+GasSensorManager gasManager;
+LightSensorManager lightManager;
+WaterSensorManager waterManager;
+RfidManager rfidManager;
+ServoManager servoManager;
+DisplayManager displayManager;
+MotionSensorManager motionManager;
+DoorbellManager doorbellManager;
+EnvironmentManager envManager;
+IndoorEnvironmentManager indoorEnvManager;
 
-unsigned long lastDisplayUpdate = 0; // Timer cyklicznego odświeżania ekranu
-const unsigned long displayUpdateInterval = 2000; // Ekran aktualizuje się co 2 sekundy
+unsigned long lastDisplayUpdate = 0;
+const unsigned long displayUpdateInterval = 2000;
 
 // --- FUNKCJA WYMUSZONEGO ODŚWIEŻENIA OŚWIETLENIA ---
-// Przywraca stan diod LED na podstawie ich ostatnich zapisanych wartości (sprzed wyzwolenia alarmu).
-// Przydaje się, gdy zdejmujemy alarm, który tymczasowo "nadpisał" kolory pasków LED.
 void refreshLights() {
   ledManager.processCommand("{\"target\": \"wew\", \"state\": \"" + ledManager.getWewState() + "\"}");
   ledManager.processCommand("{\"target\": \"zew\", \"state\": \"" + ledManager.getZewState() + "\"}");
 }
 
 // --- RESETOWANIE WSZYSTKICH ALARMÓW ---
-// Funkcja przywraca system do "czystego" stanu: wyłącza alarmy, brzęczyk, resetuje wszystkie flagi.
 void clearAllAlarms() {
   isSystemArmed = false;
   intrusionAlarmActive = false;
@@ -79,28 +78,24 @@ void clearAllAlarms() {
   gasAlarmActive = false;
   gasSilenced = false;
 
-  buzzerManager.processCommand("{\"state\": \"OFF\"}"); // Wyłączenie syreny
-  ledManager.setAlarmMode(NONE); // Wyłączenie policyjnych/ostrzegawczych efektów LED
-  refreshLights(); // Przywrócenie normalnego trybu oświetlenia
-  displayManager.clearAlarm(); // Wyczyszczenie komunikatu o alarmie z wyświetlacza
+  buzzerManager.processCommand("{\"state\": \"OFF\"}");
+  ledManager.setAlarmMode(NONE);
+  refreshLights();
+  displayManager.clearAlarm();
 
-  // Aktualizacja statusów w aplikacji (przesłanie informacji na brokera MQTT)
   connectionManager.publishMessage("makieta/access/status", "DISARMED");
   connectionManager.publishMessage("makieta/sensors", "WATER_OK");
   connectionManager.publishMessage("makieta/sensors", "GAS_OK");
 }
 
-// --- CALLBACK (OBSŁUGA KOMEND PRZYCHODZĄCYCH Z APLIKACJI PRZEZ MQTT) ---
-// Funkcja wywoływana automatycznie w momencie otrzymania komendy od aplikacji mobilnej (np. z Raspberry).
+// --- CALLBACK MQTT ---
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   String message = "";
   for (int i = 0; i < length; i++) message += (char)payload[i];
   String topicStr = String(topic);
 
-  // 1. Czujniki (np. obsługa awaryjnych przycisków "STOP ALARM" w aplikacji Android)
   if (topicStr == "makieta/sensors/ustaw") {
     if (message == "water_off") {
-      // Użytkownik wymusił wyciszenie alarmu wody na telefonie
       waterAlarmActive = false;
       waterSilenced = true;
       buzzerManager.processCommand("{\"state\": \"OFF\"}");
@@ -108,7 +103,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       refreshLights();
       connectionManager.publishMessage("makieta/sensors", "WATER_OK");
     } else if (message == "gas_off") {
-      // Użytkownik wymusił wyciszenie alarmu gazu na telefonie
       gasAlarmActive = false;
       gasSilenced = true;
       buzzerManager.processCommand("{\"state\": \"OFF\"}");
@@ -116,22 +110,19 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       refreshLights();
       connectionManager.publishMessage("makieta/sensors", "GAS_OK");
     }
-  }
-  // 2. Dostęp / Ochrona (obsługa zamka, uzbrajanie i rozbrajanie alarmu)
-  else if (topicStr == "makieta/access/ustaw") {
+  } else if (topicStr == "makieta/access/ustaw") {
     if (message == "unlock") {
-      servoManager.openDoor(); // Otwarcie rygla drzwi
+      servoManager.openDoor();
       displayManager.showRfidMessage("Dostep", 2000);
     } else if (message == "ARM") {
-      isSystemArmed = true; // Zdalne włączenie alarmu (ochrona przed włamaniem)
-      buzzerManager.triggerBeep(500); // Dźwiękowe potwierdzenie
+      isSystemArmed = true;
+      buzzerManager.triggerBeep(500);
       connectionManager.publishMessage("makieta/access/status", "ARMED");
     } else if (message == "DISARM") {
-      clearAllAlarms(); // Zdalne wyłączenie alarmu i zresetowanie flag
+      clearAllAlarms();
     }
-  } 
-  // 3. Przekazanie komend środowiskowych bezpośrednio do menedżerów
-  else if (topicStr == "makieta/oswietlenie/ustaw") ledManager.processCommand(message);
+  } else if (topicStr == "makieta/oswietlenie/ustaw")
+    ledManager.processCommand(message);
   else if (topicStr == "makieta/wentylator/ustaw") fanManager.processCommand(message);
   else if (topicStr == "makieta/buzzer/ustaw") buzzerManager.processCommand(message);
   else if (topicStr == "makieta/serwo/ustaw") servoManager.processCommand(message);
@@ -141,7 +132,28 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  // Inicjalizacja poszczególnych modułów systemu IoT (konfiguracja pinów, bibliotek I2C/SPI itp.)
+  Serial.println("\n\n==================================================");
+  Serial.println("       START SYSTEMU SMART HOME (ESP32)           ");
+  Serial.println("==================================================");
+
+  // --- 1. WI-FI ---
+  Serial.println("\n[1] INICJALIZACJA WI-FI...");
+  connectionManager.initWiFi();
+  Serial.print(" -> Polaczono z siecia:  ");
+  Serial.println(WiFi.SSID());  // Pobiera nazwę aktualnej sieci
+  Serial.print(" -> Adres IP ESP32:      ");
+  Serial.println(WiFi.localIP());
+
+  // --- 2. MQTT ---
+  Serial.println("\n[2] INICJALIZACJA BROKERA MQTT...");
+  Serial.print(" -> Adres IP Malinki:    ");
+  Serial.println(MQTT_SERVER);
+  connectionManager.setupMQTT(MQTT_SERVER, MQTT_PORT);
+  connectionManager.setCallback(mqttCallback);
+  // (Log o udanym połączeniu wypisze sama klasa ConnectionManager)
+
+  // --- 3. I2C ORAZ CZUJNIKI ---
+  Serial.println("\n[3] INICJALIZACJA CZUJNIKOW I MODULOW...");
   ledManager.init();
   buzzerManager.init();
   fanManager.init();
@@ -152,22 +164,20 @@ void setup() {
   rfidManager.init();
   motionManager.init();
   doorbellManager.init();
-  displayManager.init(WiFi.localIP().toString()); // Inicjalizacja ekranu, opcjonalnie wyświetlenie IP
 
-  // Setup komunikacji sieciowej
-  connectionManager.initWiFi();
-  connectionManager.setupMQTT(MQTT_SERVER, MQTT_PORT);
-  connectionManager.setCallback(mqttCallback);
+  // Dwa najważniejsze czujniki I2C
+  indoorEnvManager.init();
 
-  // Usunięto problematyczne linie connectionManager.subscribe —
-  // subskrypcja tematów MQTT odbywa się teraz automatycznie wewnątrz klasy ConnectionManager.cpp!
+  // --- 4. EKRAN OLED ---
+  Serial.println("\n[4] INICJALIZACJA EKRANU OLED...");
+  displayManager.init(WiFi.localIP().toString());
 
-  Serial.println("System Ready");
+  Serial.println("\n==================================================");
+  Serial.println("               *** SYSTEM READY *** ");
+  Serial.println("==================================================\n");
 }
 
 void loop() {
-  // Ciągłe wywoływanie funkcji loop dla poszczególnych modułów.
-  // Umożliwia to wielozadaniowość asynchroniczną (brak użycia funkcji delay(), która blokuje system).
   connectionManager.loop();
   buzzerManager.loop();
   servoManager.loop();
@@ -175,76 +185,95 @@ void loop() {
   envManager.loop();
   ledManager.update();
   motionManager.loop();
-
   waterManager.loop();
   gasManager.loop();
-
   lightManager.loop();
+  indoorEnvManager.loop();
 
-  // === ALGORYTM DZIEŃ / NOC I AUTOMATYKA OŚWIETLENIA ZEWNĘTRZNEGO ===
+  // --- HEARTBEAT (raz na 5 sekund) ---
+  static unsigned long lastAppUpdate = 0;
+  if (millis() - lastAppUpdate > 5000) {
+    lastAppUpdate = millis();
+
+    // Wysyłka MQTT (bez zmian)
+    connectionManager.publishMessage("makieta/sensors", waterAlarmActive ? "WATER_ALARM" : "WATER_OK");
+    connectionManager.publishMessage("makieta/sensors", gasAlarmActive ? "GAS_ALARM" : "GAS_OK");
+    connectionManager.publishMessage("makieta/czujniki/srodowisko/zew", envManager.getSensorJson());
+    connectionManager.publishMessage("makieta/czujniki/srodowisko/wew", indoorEnvManager.getSensorJson());
+    connectionManager.publishMessage("makieta/czujniki/swiatlo", lightManager.getSensorJson());
+
+    // Uporządkowane wypisywanie do konsoli
+    Serial.println("\n------------- AKTUALIZACJA DANYCH --------------");
+
+    Serial.print(" Odczyt swiatla:  ");
+    Serial.print(lightManager.getLux(), 1);
+    Serial.println(" lx");
+
+    Serial.print(" Wnetrze:         ");
+    Serial.print(indoorEnvManager.getTemp(), 1);
+    Serial.print(" *C,  ");
+    Serial.print(indoorEnvManager.getHum(), 1);
+    Serial.print(" %,  ");
+    Serial.print(indoorEnvManager.getPress(), 1);
+    Serial.println(" hPa");
+
+    Serial.print(" Zewnatrz:        ");
+    Serial.print(envManager.getTemp(), 1);
+    Serial.print(" *C,  ");
+    Serial.print(envManager.getHum(), 1);
+    Serial.println(" %");
+
+    Serial.print(" Aktywny tryb:    ");
+    Serial.println(isNightMode ? "NOC" : "DZIEN");
+
+    Serial.println("------------------------------------------------");
+  }
+
+  // === ALGORYTM DZIEŃ / NOC ===
   static unsigned long lastLightControlTime = 0;
-
-  if (millis() - lastLightControlTime > 1000) { // Sprawdzaj co 1 sekundę
+  if (millis() - lastLightControlTime > 1000) {
     lastLightControlTime = millis();
-    float currentLux = lightManager.getLux(); // Pobranie wartości luksów (natężenie światła)
+    float currentLux = lightManager.getLux();
 
-    // Konfiguracja histerezy – uodparnia system na migotanie oświetlenia w okolicach granicy przełączenia
     const float LUX_THRESHOLD_NIGHT = 100.0;
     const float LUX_THRESHOLD_DAY = 120.0;
 
-    // Przejście w tryb NOCNY
     if (currentLux < LUX_THRESHOLD_NIGHT) {
       if (!isNightMode) {
         isNightMode = true;
         connectionManager.publishMessage("makieta/system/tryb", "NIGHT");
       }
-
-      // Dynamiczna regulacja jasności świateł zewn. względem otoczenia (ciemniej = światła jaśniejsze)
       int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
-      autoBrightness = constrain(autoBrightness, 50, 255); // Ograniczenie wartości od 50 do 255 PWM
-
-      // Generowanie i wysyłanie JSON z komendą do paska LED
+      autoBrightness = constrain(autoBrightness, 50, 255);
       String jsonCommand = "{\"target\": \"zew\", \"state\": \"ON\", \"brightness\": " + String(autoBrightness) + ", \"color\": {\"r\": 255, \"g\": 255, \"b\": 255}}";
       ledManager.processCommand(jsonCommand);
-
-    // Przejście w tryb DZIENNY
     } else if (currentLux > LUX_THRESHOLD_DAY) {
       if (isNightMode) {
         isNightMode = false;
         connectionManager.publishMessage("makieta/system/tryb", "DAY");
-
-        // Wyłączanie oświetlenia zewnętrznego
-        String jsonCommand = "{\"target\": \"zew\", \"state\": \"OFF\"}";
-        ledManager.processCommand(jsonCommand);
+        ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
       }
     }
 
-    // === AKTUALIZACJA WYŚWIETLACZA OLED (Status Oświetlenia) ===
-    // Pobieramy faktyczne stany z LedStripManager i przekazujemy na ekran
-    displayManager.updateLighting(
-      (int)currentLux,
-      ledManager.getWewState(),
-      ledManager.getZewState());
+    displayManager.updateLighting((int)currentLux, ledManager.getWewState(), ledManager.getZewState());
   }
 
   // --- LOGIKA CZUJNIKA ZALANIA ---
   if (waterManager.isAlarmActive()) {
-    if (waterTriggerTime == 0) waterTriggerTime = millis(); // Moment wykrycia pierwszej kropli
-    // Debounce: jeśli sygnał jest stały powyżej zadanego czasu i alarm nie został wyciszony na telefonie
+    if (waterTriggerTime == 0) waterTriggerTime = millis();
     if (!waterAlarmActive && !waterSilenced && (millis() - waterTriggerTime > alarmDelayThreshold)) {
       waterAlarmActive = true;
       connectionManager.publishMessage("makieta/sensors", "WATER_ALARM");
-      buzzerManager.processCommand("{\"state\": \"ON\"}"); // Uruchom alarm dźwiękowy
-      ledManager.setAlarmMode(WATER_ALARM); // Odpal efekty wizualne diod
+      buzzerManager.processCommand("{\"state\": \"ON\"}");
+      ledManager.setAlarmMode(WATER_ALARM);
       displayManager.triggerAlarm("WYKRYTO ZALANIE");
     }
   } else {
-    waterTriggerTime = 0; // Czyszczenie timera
-    if (waterAlarmActive || waterSilenced) { // Automatyczny powrót z alarmu po wysuszeniu czujnika
+    waterTriggerTime = 0;
+    if (waterAlarmActive || waterSilenced) {
       waterAlarmActive = false;
       waterSilenced = false;
       connectionManager.publishMessage("makieta/sensors", "WATER_OK");
-      // Wyłącz dźwięk i światła TYLKO wtedy, gdy nie trwają jeszcze inne awarie (włamanie/gaz)
       if (!gasAlarmActive && !intrusionAlarmActive) {
         buzzerManager.processCommand("{\"state\": \"OFF\"}");
         ledManager.setAlarmMode(NONE);
@@ -257,7 +286,6 @@ void loop() {
   // --- LOGIKA CZUJNIKA GAZU ---
   if (gasManager.isAlarmActive()) {
     if (gasTriggerTime == 0) gasTriggerTime = millis();
-    // Odfiltrowanie pojedynczych skoków pomiaru z czujnika dymu (debounce)
     if (!gasAlarmActive && !gasSilenced && (millis() - gasTriggerTime > alarmDelayThreshold)) {
       gasAlarmActive = true;
       connectionManager.publishMessage("makieta/sensors", "GAS_ALARM");
@@ -267,11 +295,10 @@ void loop() {
     }
   } else {
     gasTriggerTime = 0;
-    if (gasAlarmActive || gasSilenced) { // Gaz się ulotnił
+    if (gasAlarmActive || gasSilenced) {
       gasAlarmActive = false;
       gasSilenced = false;
       connectionManager.publishMessage("makieta/sensors", "GAS_OK");
-      // Wyłącz alert jeśli to była jedyna anomalia
       if (!waterAlarmActive && !intrusionAlarmActive) {
         buzzerManager.processCommand("{\"state\": \"OFF\"}");
         ledManager.setAlarmMode(NONE);
@@ -281,93 +308,85 @@ void loop() {
     }
   }
 
-  // // Heartbeat dla aplikacji (stara wysyłka zakomentowana)
-  // static unsigned long lastAppUpdate = 0;
-  // if (millis() - lastAppUpdate > 5000) { ... }
 
-  // Heartbeat (okresowa wysyłka) dla aplikacji Kotlin (raz na 5 sek)
-  static unsigned long lastAppUpdate = 0;
-  if (millis() - lastAppUpdate > 5000) {
-    lastAppUpdate = millis();
-    connectionManager.publishMessage("makieta/sensors", waterAlarmActive ? "WATER_ALARM" : "WATER_OK");
-    connectionManager.publishMessage("makieta/sensors", gasAlarmActive ? "GAS_ALARM" : "GAS_OK");
+  // --- LOGIKA CZUJNIKA RUCHU ---
+  // Funkcja loop() zwraca true TYLKO wtedy, gdy wykryto zbocze narastające (nowy ruch)
+  if (motionManager.loop()) {
+    Serial.println("\n[ALARM] >>> WYKRYTO RUCH W BUDYNKU! <<<");
 
-    // TĘ LINIJKĘ DODAJESZ: Publikacja temperatury i wilgotności w skonsolidowanym formacie JSON
-    connectionManager.publishMessage("makieta/czujniki/srodowisko", envManager.getSensorJson());
-
-    // (Opcjonalnie) Możesz usunąć tę starą linijkę z "HUM:", bo nowa paczka JSON zawiera już wilgotność
-    connectionManager.publishMessage("makieta/sensors", "HUM:" + String((int)envManager.getHum()));
-
-    // Przekazanie wartości luksów na dedykowany temat MQTT
-    connectionManager.publishMessage("makieta/czujniki/swiatlo", lightManager.getSensorJson());
+    connectionManager.publishMessage("makieta/motion", "MOTION_DETECTED");
+    if (isSystemArmed) {
+      if (!intrusionAlarmActive) {
+        intrusionAlarmActive = true;
+        connectionManager.publishMessage("makieta/alarm/intrusion", "ACTIVE");
+        ledManager.setAlarmMode(INTRUSION_ALARM);
+        displayManager.triggerAlarm("WYKRYTO RUCH!");
+      }
+    }
   }
 
   // === AKTUALIZACJA WYŚWIETLACZA OLED ===
   if (millis() - lastDisplayUpdate >= displayUpdateInterval) {
     lastDisplayUpdate = millis();
-
-    // Przekazanie flagi - DisplayManager sam spokojnie włączy ekran "SYSTEM UZBROJONY"
     displayManager.updateSystemState(isSystemArmed);
-
-    // Pobieranie danych o środowisku w tle i rzucanie ich na OLED
     displayManager.updateEnvironment(envManager.getTemp(), envManager.getHum(), fanManager.getSpeed());
   }
 
   // --- LOGIKA ALARMU WŁAMANIOWEGO (PIR) ---
   if (motionManager.getIsEnabled() && motionManager.isMotion()) {
-    if (isSystemArmed && !intrusionAlarmActive) { // Wykryto ruch, a system był uprzednio uzbrojony
+    if (isSystemArmed && !intrusionAlarmActive) {
       intrusionAlarmActive = true;
       connectionManager.publishMessage("makieta/access/status", "ALARM");
-      buzzerManager.processCommand("{\"state\": \"ON\"}"); // Odpal syrenę alarmu
-      ledManager.setAlarmMode(INTRUSION_ALARM); // Policyjne miganie LED
+      buzzerManager.processCommand("{\"state\": \"ON\"}");
+      ledManager.setAlarmMode(INTRUSION_ALARM);
       displayManager.triggerAlarm("WYKRYTO RUCH!");
     }
   }
 
-  // --- LOGIKA DOSTĘPU RFID (Zamek oraz Uzbrajanie Systemu) ---
+  // --- LOGIKA DOSTĘPU RFID ---
   if (rfidManager.loop()) {
     String scannedUID = rfidManager.getUID();
-    lastCardSeenTime = millis(); // Resetujemy czas, w którym karta zniknęła z radaru
+    lastCardSeenTime = millis();
 
     if (!isCardHeld) {
-      cardStartTime = millis(); // Oznaczenie, od kiedy karta leży na czytniku
+      cardStartTime = millis();
       isCardHeld = true;
-      actionExecuted = false; // Gotowość do wykonania akcji po czasie
-      connectionManager.publishMessage("makieta/access/status", scannedUID); // Przekazanie do backendu (np. kto wszedł)
+      actionExecuted = false;
+
+      // DODAĆ TE LINIJKI:
+      Serial.print("\n[ZDARZENIE] >>> UZYTO KARTY RFID. UID: ");
+      Serial.print(scannedUID);
+      Serial.println(" <<<");
+
+      connectionManager.publishMessage("makieta/access/status", scannedUID);
     }
 
     if (scannedUID == AUTHORIZED_CARD_1) {
-      if (intrusionAlarmActive || wrongCardAlarm) clearAllAlarms(); // Skasuj włamanie/obcą kartę jeśli autoryzowany wszedł
-      
-      // Jeżeli użytkownik przytrzyma kartę długo (>5s) następuje zmiana statusu alarmu
+      if (intrusionAlarmActive || wrongCardAlarm) clearAllAlarms();
+
       if (!actionExecuted && millis() - cardStartTime >= armDelay) {
-        isSystemArmed = !isSystemArmed; // Toggle (Uzbrój / Rozbrój)
-        actionExecuted = true; // Blokada przed wielokrotnym przeliczaniem podczas jednego przyłożenia
+        isSystemArmed = !isSystemArmed;
+        actionExecuted = true;
         connectionManager.publishMessage("makieta/access/status", isSystemArmed ? "ARMED" : "DISARMED");
-        
-        if (isSystemArmed) buzzerManager.triggerBeep(500); // 1 piknięcie na uzbrojenie
-        else clearAllAlarms(); // Czyszczenie całego syfu przy rozbrojeniu
+        if (isSystemArmed) buzzerManager.triggerBeep(500);
+        else clearAllAlarms();
       }
     } else {
-      // Przyłożono "obcą" kartę do czytnika
       if (!wrongCardAlarm) {
         wrongCardAlarm = true;
         connectionManager.publishMessage("makieta/access/status", "DENIED");
-        ledManager.setAlarmMode(INTRUSION_ALARM); // Opcjonalny wizualny odstraszacz włamywacza
+        ledManager.setAlarmMode(INTRUSION_ALARM);
         buzzerManager.processCommand("{\"state\": \"ON\"}");
       }
     }
   } else {
-    // Logika puszczenia (odciągnięcia) karty. Jeżeli odcięto sygnał na ponad 500ms...
     if (isCardHeld && (millis() - lastCardSeenTime > 500)) {
-      // Jeżeli trzymano krócej niż 5s (brak akcji systemowej), system nie był uzbrojony
-      // -> Traktujemy to jako chęć szybkiego otwarcia drzwi.
-      if ((lastCardSeenTime - cardStartTime) < armDelay && !actionExecuted && !isSystemArmed) servoManager.openDoor();
-      
-      isCardHeld = false; // Reset trzymania
+      if ((lastCardSeenTime - cardStartTime) < armDelay && !actionExecuted && !isSystemArmed)
+        servoManager.openDoor();
+      isCardHeld = false;
     }
   }
 
   // --- LOGIKA DZWONKA ---
-  if (doorbellManager.isRinging()) buzzerManager.triggerDoorbell(); // Wywołaj melodię z buzzera
+  if (doorbellManager.isRinging()) buzzerManager.triggerDoorbell();
 }
