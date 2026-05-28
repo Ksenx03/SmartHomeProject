@@ -74,10 +74,13 @@ bool IndoorEnvironmentManager::loop() {
 
 String IndoorEnvironmentManager::getSensorJson() {
     JsonDocument doc;
-    doc["temperature"] = currentTemp;
-    doc["humidity"] = currentHum;
-    doc["pressure"] = currentPress;
-
+    
+    // Zamykamy dane w obiekcie "indoor"
+    JsonObject indoor = doc["indoor"].to<JsonObject>();
+    indoor["temperature"] = currentTemp;
+    indoor["humidity"] = currentHum;
+    indoor["pressure"] = currentPress;
+    
     String output;
     serializeJson(doc, output);
     return output;

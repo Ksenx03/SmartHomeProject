@@ -14,8 +14,14 @@ private:
     unsigned long lastReadTime;
     const unsigned long readInterval = 5000; // Interwał odczytu: 5 sekund (5000 ms)
     
+    // Zmienne dla czujnika wewnętrznego
     float currentTemp;
     float currentHum;
+    float currentPress; // NOWE: Ciśnienie wewnątrz
+
+    // Zmienne dla czujnika zewnętrznego
+    float outdoorTemp;  // NOWE: Temperatura na zewnątrz
+    float outdoorHum;   // NOWE: Wilgotność na zewnątrz
 
 public:
     EnvironmentManager();
