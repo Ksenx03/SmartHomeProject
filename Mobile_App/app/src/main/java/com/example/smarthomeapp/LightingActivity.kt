@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.tabs.TabLayout
 
 class LightingActivity : AppCompatActivity() {
@@ -25,6 +26,8 @@ class LightingActivity : AppCompatActivity() {
     private lateinit var sbBrightness: SeekBar
     private lateinit var modeButtons: List<Button>
     private lateinit var tabLayout: TabLayout
+    private lateinit var layoutAutoMode: LinearLayout
+    private lateinit var switchAutoMode: SwitchMaterial
 
     // Цвета из дизайна
     private val heatingGreen = Color.parseColor("#00695C")
@@ -33,17 +36,18 @@ class LightingActivity : AppCompatActivity() {
     // Текущая выбранная зона управления ("wew" или "zew")
     private var currentTarget = "wew"
 
-    // Переменные состояния (теперь обновляются динамически из памяти)
+    // Переменные состояния
     private var isLightOn = "OFF"
     private var currentBrightness = 100
     private var currentR = 255; private var currentG = 255; private var currentB = 255
     private var currentMode = "none"
 
+    // Палитра без черного цвета (заменили на уютный теплый белый)
     private val colorPalette = arrayOf(
         "#FF0000", "#FF4500", "#FF8C00", "#FFA500", "#FFD700", "#FFFF00",
         "#CCFF00", "#80FF00", "#00FF00", "#00FF80", "#00FFFF", "#00CCFF",
         "#0066FF", "#0000FF", "#4B0082", "#7B00FF", "#B000FF", "#FF00FF",
-        "#FF0080", "#FF0040", "#8B4513", "#708090", "#FFFFFF", "#333333"
+        "#FF0080", "#FF0040", "#8B4513", "#708090", "#FFFFFF", "#FFE4B5"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,8 +55,6 @@ class LightingActivity : AppCompatActivity() {
         setContentView(R.layout.activity_lighting)
 
         prefs = getSharedPreferences("SmartHomePrefs", Context.MODE_PRIVATE)
-
-        // По умолчанию загружаем внутренний свет
         loadSavedState("wew")
 
         mqttHandler = MqttHandler(this)
@@ -67,6 +69,8 @@ class LightingActivity : AppCompatActivity() {
         tvBrightnessPercent = findViewById(R.id.tvBrightnessPercent)
         sbBrightness = findViewById(R.id.brightnessSeekBar)
         tabLayout = findViewById(R.id.tabLightTarget)
+        layoutAutoMode = findViewById(R.id.layoutAutoMode)
+        switchAutoMode = findViewById(R.id.switchAutoMode)
 
         modeButtons = listOf(
             findViewById(R.id.btnDisco),
@@ -79,18 +83,15 @@ class LightingActivity : AppCompatActivity() {
         setupBrightnessControl()
         setupColorGrid()
         setupSpecialModes()
+        setupAutoModeSwitch()
 
         updateUIState()
     }
 
-    // Логика работы вкладок Внутри / Снаружи
     private fun setupTargetTabs() {
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
-                // Меняем цель в зависимости от выбранной вкладки
                 currentTarget = if (tab?.position == 0) "wew" else "zew"
-
-                // Переключаем настройки: загружаем состояние и обновляем экран
                 loadSavedState(currentTarget)
                 updateUIState()
             }
@@ -179,12 +180,40 @@ class LightingActivity : AppCompatActivity() {
         }
     }
 
+    // Логика работы переключателя автоматического режима
+    private fun setupAutoModeSwitch() {
+        switchAutoMode.setOnCheckedChangeListener { _, isChecked ->
+            currentMode = if (isChecked) "auto" else "none"
+            // Убрали искусственное включение света. Теперь ждем ответа от Ардуино!
+            updateUIState()
+            saveState(currentTarget)
+            sendCommand()
+        }
+    }
+
     private fun updateUIState() {
-        tvStatus.text = isLightOn
+        // Показываем блок переключателя авторежима ТОЛЬКО для Outdoor (zew)
+        if (currentTarget == "zew") {
+            layoutAutoMode.visibility = View.VISIBLE
+            switchAutoMode.isChecked = (currentMode == "auto")
+        } else {
+            layoutAutoMode.visibility = View.GONE
+        }
+
+        // Если включен авторежим, пишем AUTO, иначе текущее состояние (ON/OFF)
+        tvStatus.text = if (currentMode == "auto" && isLightOn == "OFF") "AUTO" else if (currentMode == "auto" && isLightOn == "ON") "AUTO (ACTIVE)" else isLightOn
+
+        // Лампочка загорается ТОЛЬКО если реальный статус света ON (неважно, ручной это режим или авто)
         if (isLightOn == "ON") {
             tvStatus.setTextColor(heatingGreen)
-            ivLightButton.setColorFilter(Color.rgb(currentR, currentG, currentB))
+            // Если горит в авторежиме — сделаем красивый золотой, если вручную — RGB цвет
+            if (currentMode == "auto") {
+                ivLightButton.setColorFilter(Color.parseColor("#FFD700"))
+            } else {
+                ivLightButton.setColorFilter(Color.rgb(currentR, currentG, currentB))
+            }
         } else {
+            // Если свет OFF (даже при включенном авторежиме, пока светло) — лампочка серая!
             tvStatus.setTextColor(Color.GRAY)
             ivLightButton.setColorFilter(Color.parseColor("#4400695C"))
         }
@@ -204,7 +233,6 @@ class LightingActivity : AppCompatActivity() {
         sbBrightness.progress = currentBrightness
     }
 
-    // Сохраняем состояние с префиксом зоны (wew_ или zew_)
     private fun saveState(target: String) {
         prefs.edit().apply {
             putString("${target}_lightState", isLightOn)
@@ -217,7 +245,6 @@ class LightingActivity : AppCompatActivity() {
         }
     }
 
-    // Загружаем состояние с префиксом зоны (wew_ или zew_)
     private fun loadSavedState(target: String) {
         isLightOn = prefs.getString("${target}_lightState", "OFF") ?: "OFF"
         currentBrightness = prefs.getInt("${target}_brightness", 100)

@@ -160,5 +160,30 @@
                 android:textColor="#00695C"
                 android:background="@drawable/bg_heating_button"/>
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutAutoMode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical"
+            android:visibility="gone"> <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Auto Night Mode"
+            android:textColor="#00695C"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchAutoMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:thumbTint="#00695C"
+                app:trackTint="#4D00695C" />
+        </LinearLayout>
+
     </LinearLayout>
 </ScrollView>
