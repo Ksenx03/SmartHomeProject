@@ -24,7 +24,7 @@
             android:id="@+id/tvTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Sensors"
+            android:text="@string/title_sensors"
             android:textSize="20sp"
             android:textStyle="bold"
             android:layout_marginStart="16dp"
@@ -65,7 +65,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="WATER: SECURE"
+                    android:text="@string/status_water_secure"
                     android:textColor="#00695C"
                     android:textSize="18sp"
                     android:textStyle="bold" />
@@ -82,7 +82,7 @@
                     style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="RESET"
+                    android:text="@string/btn_reset"
                     android:textColor="#00695C"
                     android:backgroundTint="#1A00695C"/>
             </LinearLayout>
@@ -123,7 +123,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="GAS: CLEAN"
+                    android:text="@string/status_gas_clean"
                     android:textColor="#00695C"
                     android:textSize="18sp"
                     android:textStyle="bold" />
@@ -140,7 +140,7 @@
                     style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="RESET"
+                    android:text="@string/btn_reset"
                     android:textColor="#00695C"
                     android:backgroundTint="#1A00695C"/>
             </LinearLayout>

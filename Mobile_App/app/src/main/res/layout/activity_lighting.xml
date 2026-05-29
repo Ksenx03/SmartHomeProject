@@ -28,12 +28,11 @@
             android:id="@+id/tabLightTarget"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="16dp"
             android:background="@android:color/transparent"
             app:tabSelectedTextColor="#00695C"
-            app:tabTextColor="#4D00695C"
-            app:tabIndicatorColor="#00695C"
-            app:tabRippleColor="@android:color/transparent">
+            app:tabTextColor="#8000695C"
+            app:tabIndicatorColor="#00695C">
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -65,7 +64,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Lighting"
+            android:text="@string/title_lighting"
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="#00695C"
@@ -89,7 +88,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Brightness"
+                android:text="@string/label_brightness"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="#00695C" />
@@ -116,7 +115,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Special Effects"
+            android:text="@string/label_special_effects"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="#00695C"
@@ -126,14 +125,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:weightSum="3">
+            android:weightSum="3"
+            android:layout_marginBottom="24dp">
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnDisco"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Disco"
+                android:text="@string/btn_disco"
                 android:textStyle="bold"
                 android:textColor="#00695C"
                 android:background="@drawable/bg_heating_button"
@@ -144,7 +144,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Relax"
+                android:text="@string/btn_relax"
                 android:textStyle="bold"
                 android:textColor="#00695C"
                 android:background="@drawable/bg_heating_button"
@@ -155,7 +155,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Strobe"
+                android:text="@string/btn_strobe"
                 android:textStyle="bold"
                 android:textColor="#00695C"
                 android:background="@drawable/bg_heating_button"/>
@@ -168,14 +168,16 @@
             android:orientation="horizontal"
             android:padding="16dp"
             android:gravity="center_vertical"
-            android:visibility="gone"> <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Auto Night Mode"
-            android:textColor="#00695C"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Auto Night Mode"
+                android:textColor="#00695C"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switchAutoMode"

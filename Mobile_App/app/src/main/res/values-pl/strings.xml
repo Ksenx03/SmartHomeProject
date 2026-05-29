@@ -1,0 +1,67 @@
+<resources>
+    <string name="app_name">SmartHomeApp</string>
+
+    <string name="welcome_back">Witaj z powrotem</string>
+    <string name="hint_login">Login</string>
+    <string name="hint_password">Hasło</string>
+    <string name="remember_me">Zapamiętaj mnie</string>
+    <string name="btn_log_in">ZALOGUJ SIĘ</string>
+    <string name="error_wrong_credentials">Błędny login lub hasło</string>
+
+    <string name="title_smart">Smart Dom</string>
+    <string name="welcome_home">Witaj w domu,</string>
+    <string name="card_heating">Ogrzewanie</string>
+    <string name="card_ventilation">Wentylacja</string>
+    <string name="card_sensors">Czujniki</string>
+    <string name="card_access">Kontrola dostępu</string>
+    <string name="card_lighting">Oświetlenie</string>
+    <string name="card_blinds">Rolety</string>
+
+    <string name="current_room_temp">Aktualna temperatura w pokoju</string>
+    <string name="btn_eco">Eco</string>
+    <string name="btn_comfort">Comfort</string>
+    <string name="btn_boost">Boost</string>
+
+    <string name="title_ventilation">Wentylacja</string>
+    <string name="status_stopped">Zatrzymano</string>
+    <string name="btn_auto">AUTO</string>
+    <string name="btn_night">NOC</string>
+    <string name="btn_turbo">TURBO</string>
+
+    <string name="title_lighting">Oświetlenie</string>
+    <string name="label_brightness">Jasność</string>
+    <string name="label_special_effects">Efekty specjalne</string>
+    <string name="btn_disco">Disco</string>
+    <string name="btn_relax">Relax</string>
+    <string name="btn_strobe">Stroboskop</string>
+
+    <string name="status_disarmed">ROZBROJONY</string>
+    <string name="title_home_access">Dostęp do domu</string>
+    <string name="btn_unlock">Otwórz</string>
+    <string name="btn_arm">Uzbrój</string>
+    <string name="label_activity_history">Historia aktywności</string>
+
+    <string name="title_window_blinds">Rolety okienne</string>
+    <string name="status_closed_fmt">Zamknięte: %1$s</string>
+    <string name="btn_open">Otwórz</string>
+    <string name="btn_closed">Zamknij</string>
+
+    <string name="title_sensors">Czujniki</string>
+    <string name="status_water_secure">WODA: BEZPIECZNIE</string>
+    <string name="status_gas_clean">GAZ: CZYSTO</string>
+    <string name="btn_reset">RESET</string>
+
+    <string name="app_brand_name">Nexus</string> <string name="climate_overview">Przegląd klimatu</string>
+    <string name="label_indoor">WEWNĄTRZ</string>
+    <string name="label_outdoor">NA ZEWNĄTRZ</string>
+    <string name="label_temperature">Temperatura</string>
+    <string name="label_humidity">Wilgotność</string>
+    <string name="label_luminosity">Oświetlenie</string>
+    <string name="label_pressure">Ciśnienie</string>
+    <string name="systems_status">Status systemów</string>
+    <string name="sys_lighting">Oświetlenie: </string>
+    <string name="sys_heating">Ogrzewanie: </string>
+    <string name="sys_ventilation">Wentylacja: </string>
+    <string name="sys_security">Ochrona: </string>
+
+</resources>

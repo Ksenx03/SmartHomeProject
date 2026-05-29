@@ -1,3 +1,67 @@
 <resources>
     <string name="app_name">SmartHomeApp</string>
+
+    <string name="welcome_back">Welcome Back</string>
+    <string name="hint_login">Login</string>
+    <string name="hint_password">Password</string>
+    <string name="remember_me">Remember me</string>
+    <string name="btn_log_in">LOG IN</string>
+    <string name="error_wrong_credentials">Wrong login or password</string>
+
+    <string name="title_smart">Smart</string>
+    <string name="welcome_home">Welcome Home,</string>
+    <string name="card_heating">Heating</string>
+    <string name="card_ventilation">Ventilation</string>
+    <string name="card_sensors">Sensors</string>
+    <string name="card_access">Access</string>
+    <string name="card_lighting">Lighting</string>
+    <string name="card_blinds">Blinds</string>
+
+    <string name="current_room_temp">Current Room Temperature</string>
+    <string name="btn_eco">Eco</string>
+    <string name="btn_comfort">Comfort</string>
+    <string name="btn_boost">Boost</string>
+
+    <string name="title_ventilation">Ventilation</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="btn_auto">AUTO</string>
+    <string name="btn_night">NIGHT</string>
+    <string name="btn_turbo">TURBO</string>
+
+    <string name="title_lighting">Lighting</string>
+    <string name="label_brightness">Brightness</string>
+    <string name="label_special_effects">Special Effects</string>
+    <string name="btn_disco">Disco</string>
+    <string name="btn_relax">Relax</string>
+    <string name="btn_strobe">Strobe</string>
+
+    <string name="status_disarmed">DISARMED</string>
+    <string name="title_home_access">Home Access</string>
+    <string name="btn_unlock">Unlock</string>
+    <string name="btn_arm">Arm</string>
+    <string name="label_activity_history">Activity History</string>
+
+    <string name="title_window_blinds">Window Blinds</string>
+    <string name="status_closed_fmt">Closed: %1$s</string>
+    <string name="btn_open">Open</string>
+    <string name="btn_closed">Closed</string>
+
+    <string name="title_sensors">Sensors</string>
+    <string name="status_water_secure">WATER: SECURE</string>
+    <string name="status_gas_clean">GAS: CLEAN</string>
+    <string name="btn_reset">RESET</string>
+
+    <string name="app_brand_name">Nexus</string> <string name="climate_overview">Climate Overview</string>
+    <string name="label_indoor">INDOOR</string>
+    <string name="label_outdoor">OUTDOOR</string>
+    <string name="label_temperature">Temperature</string>
+    <string name="label_humidity">Humidity</string>
+    <string name="label_luminosity">Luminosity</string>
+    <string name="label_pressure">Pressure</string>
+    <string name="systems_status">Systems Status</string>
+    <string name="sys_lighting">Lighting: </string>
+    <string name="sys_heating">Heating: </string>
+    <string name="sys_ventilation">Ventilation: </string>
+    <string name="sys_security">Security: </string>
+
 </resources>
