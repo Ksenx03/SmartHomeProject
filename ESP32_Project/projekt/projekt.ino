@@ -32,6 +32,8 @@ bool waterSilenced = false;     // Wyciszenie alarmu zalania z poziomu aplikacji
 bool gasAlarmActive = false;    // Alarm gazu/dymu
 bool gasSilenced = false;       // Wyciszenie alarmu gazu z poziomu aplikacji
 
+bool isAutoLightModeEnabled = true;
+
 // Timery do filtrowania szumów (debounce)
 unsigned long waterTriggerTime = 0;
 unsigned long gasTriggerTime = 0;
@@ -140,17 +142,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   // 1. Konwersja payloadu (tablicy bajtów) na obiekt String
   String message = "";
   for (int i = 0; i < length; i++) message += (char)payload[i];
+
+  message.trim(); 
   
-  // 2. Konwersja tematu na obiekt String dla bezpieczniejszych porównań
   String topicStr = String(topic);
+  topicStr.trim(); // Oczyszczenie tematu dla pewności
 
   // --- PARSOWANIE KOMEND ---
   if (topicStr == "makieta/serwo/ustaw") {
     // Używamy zmiennej 'message', która zawiera nasz payload
     servoManager.processCommand(message);   // Drzwi (reagują na target "door" lub brak targetu)
     blindsManager.processCommand(message);  // Żaluzje (reagują na target "zaluzja")
-  } 
-  else if (topicStr == "makieta/sensors/ustaw") {
+  } else if (topicStr == "makieta/sensors/ustaw") {
     if (message == "water_off") {
       waterAlarmActive = false;
       waterSilenced = true;
@@ -166,8 +169,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       refreshLights();
       connectionManager.publishMessage("makieta/sensors", "GAS_OK");
     }
-  } 
-  else if (topicStr == "makieta/access/ustaw") {
+  } else if (topicStr == "makieta/access/ustaw") {
     if (message == "unlock") {
       servoManager.openDoor();
       displayManager.showRfidMessage("Dostep", 2000);
@@ -178,15 +180,21 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     } else if (message == "DISARM") {
       clearAllAlarms();
     }
-  } 
-  else if (topicStr == "makieta/oswietlenie/ustaw") {
+  } else if (topicStr == "makieta/oswietlenie/ustaw") {
     ledManager.processCommand(message);
-  }
-  else if (topicStr == "makieta/wentylator/ustaw") {
+  } else if (topicStr == "makieta/wentylator/ustaw") {
     fanManager.processCommand(message);
-  }
-  else if (topicStr == "makieta/buzzer/ustaw") {
+  } else if (topicStr == "makieta/buzzer/ustaw") {
     buzzerManager.processCommand(message);
+  } else if (topicStr == "makieta/oswietlenie/automatyka") {
+    // Komenda przełączająca tryb z aplikacji mobilnej
+    if (message == "ON") {
+      isAutoLightModeEnabled = true;
+      Serial.println("[INFO] Tryb automatyczny (dzien/noc) WLACZONY");
+    } else if (message == "OFF") {
+      isAutoLightModeEnabled = false;
+      Serial.println("[INFO] Tryb automatyczny (dzien/noc) WYLACZONY - sterowanie reczne");
+    }
   }
   // Usunąłem stąd zduplikowane wywołanie dla "makieta/serwo/ustaw"
 }
@@ -295,26 +303,106 @@ void loop() {
   //   Serial.println("------------------------------------------------");
   // }
 
+  // // --- HEARTBEAT (raz na 5 sekund) ---
+  // static unsigned long lastAppUpdate = 0;
+  // if (millis() - lastAppUpdate > 5000) {
+  //   lastAppUpdate = millis();
+
+  //   // Pakowanie wszystkiego w formacie JSON
+  //   DynamicJsonDocument statusDoc(256);
+  //   statusDoc["status_light"] = statusLight;
+  //   statusDoc["status_vent"] = statusVent;
+  //   statusDoc["status_security"] = statusSecurity;
+  //   statusDoc["status_heating"] = "OFF"; // Ogrzewanie (na sztywno OFF)
+    
+  //   // DODANA LINIJKA: Informacja dla aplikacji, w jakim trybie jest automatyka oświetlenia
+  //   statusDoc["status_auto_light"] = isAutoLightModeEnabled ? "ON" : "OFF";
+
+  //   String statusJsonStr;
+  //   serializeJson(statusDoc, statusJsonStr);
+    
+  //   // Wysyłanie na temat MQTT z którego czyta aplikacja
+  //   connectionManager.publishMessage("makieta/status/systemy", statusJsonStr);
+
+  //   // 1. Wysyłka MQTT stanu czujników (Twój stary kod)
+  //   connectionManager.publishMessage("makieta/sensors", waterAlarmActive ? "WATER_ALARM" : "WATER_OK");
+  //   connectionManager.publishMessage("makieta/sensors", gasAlarmActive ? "GAS_ALARM" : "GAS_OK");
+  //   connectionManager.publishMessage("makieta/czujniki/srodowisko/zew", envManager.getSensorJson());
+  //   connectionManager.publishMessage("makieta/czujniki/srodowisko/wew", indoorEnvManager.getSensorJson());
+  //   connectionManager.publishMessage("makieta/czujniki/swiatlo", lightManager.getSensorJson());
+
+  //   // ============================================================
+  //   // 2. NOWE: WYSYŁANIE STATUSU SYSTEMÓW DLA APLIKACJI (KAFELKI)
+  //   // ============================================================
+
+  //   // Sprawdzanie Oświetlenia: ON jeśli wewnątrz LUB na zewnątrz się świeci
+  //   String statusLight = "OFF";
+  //   if (ledManager.getWewState() == "ON" || ledManager.getZewState() == "ON") {
+  //     statusLight = "ON";
+  //   }
+
+  //   // Sprawdzanie Wentylacji: ON jeśli prędkość > 0
+  //   String statusVent = (fanManager.getSpeed() > 0) ? "ON" : "OFF";
+
+  //   // Sprawdzanie Alarmu: ALARM (włamanie), ARMED (uzbrojony), DISARMED (rozbrojony)
+  //   String statusSecurity = isSystemArmed ? "ARMED" : "DISARMED";
+  //   if (intrusionAlarmActive) {
+  //     statusSecurity = "ALARM";
+  //   }
+
+  //   // Pakowanie wszystkiego w formacie JSON
+  //   DynamicJsonDocument statusDoc(256);
+  //   statusDoc["status_light"] = statusLight;
+  //   statusDoc["status_vent"] = statusVent;
+  //   statusDoc["status_security"] = statusSecurity;
+  //   statusDoc["status_heating"] = "OFF";  // Ogrzewanie (na sztywno OFF, dopóki nie dodasz grzałki)
+
+  //   String statusJsonStr;
+  //   serializeJson(statusDoc, statusJsonStr);
+
+  //   // Wysyłanie na temat MQTT z którego czyta aplikacja
+  //   connectionManager.publishMessage("makieta/status/systemy", statusJsonStr);
+  //   // ============================================================
+
+
+  //   // 3. Uporządkowane wypisywanie do konsoli (Twój stary kod)
+  //   Serial.println("\n------------- AKTUALIZACJA DANYCH --------------");
+  //   Serial.print(" Odczyt swiatla:  ");
+  //   Serial.print(lightManager.getLux(), 1);
+  //   Serial.println(" lx");
+
+  //   Serial.print(" Wnetrze:         ");
+  //   Serial.print(indoorEnvManager.getTemp(), 1);
+  //   Serial.print(" *C,  ");
+  //   Serial.print(indoorEnvManager.getHum(), 1);
+  //   Serial.print(" %,  ");
+  //   Serial.print(indoorEnvManager.getPress(), 1);
+  //   Serial.println(" hPa");
+
+  //   Serial.print(" Zewnatrz:        ");
+  //   Serial.print(envManager.getTemp(), 1);
+  //   Serial.print(" *C,  ");
+  //   Serial.print(envManager.getHum(), 1);
+  //   Serial.println(" %");
+
+  //   Serial.print(" Aktywny tryb:    ");
+  //   Serial.println(isNightMode ? "NOC" : "DZIEN");
+  //   Serial.println("------------------------------------------------");
+  // }
+
   // --- HEARTBEAT (raz na 5 sekund) ---
   static unsigned long lastAppUpdate = 0;
   if (millis() - lastAppUpdate > 5000) {
     lastAppUpdate = millis();
 
-    // 1. Wysyłka MQTT stanu czujników (Twój stary kod)
-    connectionManager.publishMessage("makieta/sensors", waterAlarmActive ? "WATER_ALARM" : "WATER_OK");
-    connectionManager.publishMessage("makieta/sensors", gasAlarmActive ? "GAS_ALARM" : "GAS_OK");
-    connectionManager.publishMessage("makieta/czujniki/srodowisko/zew", envManager.getSensorJson());
-    connectionManager.publishMessage("makieta/czujniki/srodowisko/wew", indoorEnvManager.getSensorJson());
-    connectionManager.publishMessage("makieta/czujniki/swiatlo", lightManager.getSensorJson());
+    // ============================================================
+    // 1. OBLICZANIE STANÓW SYSTEMÓW (DLA KAFELKÓW W APLIKACJI)
+    // ============================================================
 
-    // ============================================================
-    // 2. NOWE: WYSYŁANIE STATUSU SYSTEMÓW DLA APLIKACJI (KAFELKI)
-    // ============================================================
-    
     // Sprawdzanie Oświetlenia: ON jeśli wewnątrz LUB na zewnątrz się świeci
     String statusLight = "OFF";
     if (ledManager.getWewState() == "ON" || ledManager.getZewState() == "ON") {
-        statusLight = "ON";
+      statusLight = "ON";
     }
 
     // Sprawdzanie Wentylacji: ON jeśli prędkość > 0
@@ -323,25 +411,37 @@ void loop() {
     // Sprawdzanie Alarmu: ALARM (włamanie), ARMED (uzbrojony), DISARMED (rozbrojony)
     String statusSecurity = isSystemArmed ? "ARMED" : "DISARMED";
     if (intrusionAlarmActive) {
-        statusSecurity = "ALARM"; 
+      statusSecurity = "ALARM";
     }
 
-    // Pakowanie wszystkiego w formacie JSON
+    // ============================================================
+    // 2. PAKOWANIE W JSON I WYSYŁANIE STATUSU OGÓLNEGO
+    // ============================================================
     DynamicJsonDocument statusDoc(256);
     statusDoc["status_light"] = statusLight;
     statusDoc["status_vent"] = statusVent;
     statusDoc["status_security"] = statusSecurity;
-    statusDoc["status_heating"] = "OFF"; // Ogrzewanie (na sztywno OFF, dopóki nie dodasz grzałki)
+    statusDoc["status_heating"] = "OFF";  // Ogrzewanie (na sztywno OFF, dopóki nie dodasz grzałki)
+    statusDoc["status_auto_light"] = isAutoLightModeEnabled ? "ON" : "OFF"; // Stan automatyki
 
     String statusJsonStr;
     serializeJson(statusDoc, statusJsonStr);
     
-    // Wysyłanie na temat MQTT z którego czyta aplikacja
+    // Wysyłanie na temat MQTT, z którego czyta aplikacja mobilna
     connectionManager.publishMessage("makieta/status/systemy", statusJsonStr);
+
     // ============================================================
+    // 3. WYSYŁKA STATUSU POZOSTAŁYCH CZUJNIKÓW DO APLIKACJI
+    // ============================================================
+    connectionManager.publishMessage("makieta/sensors", waterAlarmActive ? "WATER_ALARM" : "WATER_OK");
+    connectionManager.publishMessage("makieta/sensors", gasAlarmActive ? "GAS_ALARM" : "GAS_OK");
+    connectionManager.publishMessage("makieta/czujniki/srodowisko/zew", envManager.getSensorJson());
+    connectionManager.publishMessage("makieta/czujniki/srodowisko/wew", indoorEnvManager.getSensorJson());
+    connectionManager.publishMessage("makieta/czujniki/swiatlo", lightManager.getSensorJson());
 
-
-    // 3. Uporządkowane wypisywanie do konsoli (Twój stary kod)
+    // ============================================================
+    // 4. WYPISYWANIE DANYCH DIAGNOSTYCZNYCH DO KONSOLI SZEREGOWEJ
+    // ============================================================
     Serial.println("\n------------- AKTUALIZACJA DANYCH --------------");
     Serial.print(" Odczyt swiatla:  ");
     Serial.print(lightManager.getLux(), 1);
@@ -366,34 +466,116 @@ void loop() {
     Serial.println("------------------------------------------------");
   }
 
+  // // === ALGORYTM DZIEŃ / NOC ===
+  // static unsigned long lastLightControlTime = 0;
+  // if (millis() - lastLightControlTime > 1000) {
+  //   lastLightControlTime = millis();
+  //   float currentLux = lightManager.getLux();
+
+  //   const float LUX_THRESHOLD_NIGHT = 100.0;
+  //   const float LUX_THRESHOLD_DAY = 120.0;
+
+  //   if (currentLux < LUX_THRESHOLD_NIGHT) {
+  //     if (!isNightMode) {
+  //       isNightMode = true;
+  //       blindsManager.closeBlinds();
+  //       connectionManager.publishMessage("makieta/system/tryb", "NIGHT");
+  //     }
+  //     int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
+  //     autoBrightness = constrain(autoBrightness, 50, 255);
+  //     String jsonCommand = "{\"target\": \"zew\", \"state\": \"ON\", \"brightness\": " + String(autoBrightness) + ", \"color\": {\"r\": 255, \"g\": 255, \"b\": 255}}";
+  //     ledManager.processCommand(jsonCommand);
+  //   } else if (currentLux > LUX_THRESHOLD_DAY) {
+  //     if (isNightMode) {
+  //       isNightMode = false;
+  //       blindsManager.openBlinds();
+  //       connectionManager.publishMessage("makieta/system/tryb", "DAY");
+  //       ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
+  //     }
+  //   }
+
+  //   displayManager.updateLighting((int)currentLux, ledManager.getWewState(), ledManager.getZewState());
+  // }
+
+  // // === ALGORYTM DZIEŃ / NOC ===
+  // static unsigned long lastLightControlTime = 0;
+  // if (millis() - lastLightControlTime > 1000) {
+  //   lastLightControlTime = millis();
+  //   float currentLux = lightManager.getLux();
+    
+  //   // Logika decyzyjna wykonuje się TYLKO jeśli automatyka jest aktywna
+  //   if (isAutoLightModeEnabled) {
+  //     const float LUX_THRESHOLD_NIGHT = 100.0;
+  //     const float LUX_THRESHOLD_DAY = 120.0;
+
+  //     if (currentLux < LUX_THRESHOLD_NIGHT) {
+  //       if (!isNightMode) {
+  //         isNightMode = true;
+  //         blindsManager.closeBlinds();
+  //         connectionManager.publishMessage("makieta/system/tryb", "NIGHT");
+  //       }
+  //       // Obliczanie jasności na podstawie poziomu zaciemnienia
+  //       int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
+  //       autoBrightness = constrain(autoBrightness, 50, 255);
+        
+  //       String jsonCommand = "{\"target\": \"zew\", \"state\": \"ON\", \"brightness\": " + String(autoBrightness) + ", \"color\": {\"r\": 255, \"g\": 255, \"b\": 255}}";
+  //       ledManager.processCommand(jsonCommand);
+
+  //     } else if (currentLux > LUX_THRESHOLD_DAY) {
+  //       if (isNightMode) {
+  //         isNightMode = false;
+  //         blindsManager.openBlinds();
+  //         connectionManager.publishMessage("makieta/system/tryb", "DAY");
+  //         ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
+  //       }
+  //     }
+  //   }
+
+  //   // Aktualizacja wyświetlacza następuje zawsze (aby ekran widział ewentualne ręczne zmiany jasności)
+  //   displayManager.updateLighting((int)currentLux, ledManager.getWewState(), ledManager.getZewState());
+  // }
+
   // === ALGORYTM DZIEŃ / NOC ===
   static unsigned long lastLightControlTime = 0;
   if (millis() - lastLightControlTime > 1000) {
     lastLightControlTime = millis();
     float currentLux = lightManager.getLux();
-
+    
     const float LUX_THRESHOLD_NIGHT = 100.0;
     const float LUX_THRESHOLD_DAY = 120.0;
 
+    // 1. Zmiana stanu i sterowanie roletami (wykonuje się ZAWSZE, niezależnie od trybu LED)
     if (currentLux < LUX_THRESHOLD_NIGHT) {
       if (!isNightMode) {
         isNightMode = true;
         blindsManager.closeBlinds();
         connectionManager.publishMessage("makieta/system/tryb", "NIGHT");
       }
-      int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
-      autoBrightness = constrain(autoBrightness, 50, 255);
-      String jsonCommand = "{\"target\": \"zew\", \"state\": \"ON\", \"brightness\": " + String(autoBrightness) + ", \"color\": {\"r\": 255, \"g\": 255, \"b\": 255}}";
-      ledManager.processCommand(jsonCommand);
+      
+      // 2. Sterowanie OŚWIETLENIEM ZEWNĘTRZNYM (wykonuje się TYLKO, gdy tryb AUTO jest włączony)
+      if (isAutoLightModeEnabled) {
+        int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
+        autoBrightness = constrain(autoBrightness, 50, 255);
+        
+        String jsonCommand = "{\"target\": \"zew\", \"state\": \"ON\", \"brightness\": " + String(autoBrightness) + ", \"color\": {\"r\": 255, \"g\": 255, \"b\": 255}}";
+        ledManager.processCommand(jsonCommand);
+      }
+
     } else if (currentLux > LUX_THRESHOLD_DAY) {
       if (isNightMode) {
         isNightMode = false;
         blindsManager.openBlinds();
         connectionManager.publishMessage("makieta/system/tryb", "DAY");
-        ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
+        
+        // Wyłączenie światła o świcie również następuje TYLKO w trybie AUTO.
+        // Jeśli użytkownik sterował ręcznie (Manual), musi sam zgasić światło z aplikacji.
+        if (isAutoLightModeEnabled) {
+          ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
+        }
       }
     }
 
+    // Aktualizacja wyświetlacza następuje zawsze (aby ekran widział ewentualne ręczne zmiany)
     displayManager.updateLighting((int)currentLux, ledManager.getWewState(), ledManager.getZewState());
   }
 
