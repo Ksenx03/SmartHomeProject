@@ -49,42 +49,6 @@ bool RfidManager::loop() {
     return true; 
 }
 
-// bool RfidManager::loop() {
-//     // 1. Sprawdzamy, czy w pobliżu czytnika w ogóle jest jakaś karta
-//     if (!mfrc522.PICC_IsNewCardPresent()) {
-//         return false;
-//     }
-
-//     // 2. Jeśli jest, próbujemy odczytać jej numer seryjny (UID)
-//     if (!mfrc522.PICC_ReadCardSerial()) {
-//         return false;
-//     }
-
-//     // 3. Konwertujemy surowe bajty na czytelny ciąg znaków (np. "A1B2C3D4")
-//     lastReadUID = getUIDString(mfrc522.uid.uidByte, mfrc522.uid.size);
-    
-//     // Usypiamy kartę po odczycie (dobra praktyka w RFID)
-//     mfrc522.PICC_HaltA();
-
-//     return true; 
-// }
-
-// bool RfidManager::loop() {
-//     // 1. Sprawdzamy obecność karty
-//     if (!mfrc522.PICC_IsNewCardPresent()) return false;
-    
-//     // 2. Czytamy numer seryjny
-//     if (!mfrc522.PICC_ReadCardSerial()) return false;
-
-//     // 3. Zapisujemy odczyt
-//     lastReadUID = getUIDString(mfrc522.uid.uidByte, mfrc522.uid.size);
-    
-//     // MUSIMY uśpić kartę, żeby za milisekundę IsNewCardPresent znów zadziałało!
-//     mfrc522.PICC_HaltA();
-//     mfrc522.PCD_StopCrypto1();
-
-//     return true; 
-// }
 
 String RfidManager::getSensorJson() {
     JsonDocument doc;

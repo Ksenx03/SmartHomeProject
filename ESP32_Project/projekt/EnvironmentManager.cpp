@@ -40,8 +40,11 @@ bool EnvironmentManager::loop() {
 
 String EnvironmentManager::getSensorJson() {
     JsonDocument doc;
-    doc["temperature"] = currentTemp;
-    doc["humidity"] = currentHum;
+
+    // Zamykamy dane w obiekcie "outdoor"
+    JsonObject outdoor = doc["outdoor"].to<JsonObject>();
+    outdoor["temperature"] = currentTemp;
+    outdoor["humidity"] = currentHum;
 
     String output;
     serializeJson(doc, output);
