@@ -256,21 +256,93 @@ void loop() {
   indoorEnvManager.loop();
   blindsManager.loop();
 
+  // // --- HEARTBEAT (raz na 5 sekund) ---
+  // static unsigned long lastAppUpdate = 0;
+  // if (millis() - lastAppUpdate > 5000) {
+  //   lastAppUpdate = millis();
+
+  //   // Wysyłka MQTT (bez zmian)
+  //   connectionManager.publishMessage("makieta/sensors", waterAlarmActive ? "WATER_ALARM" : "WATER_OK");
+  //   connectionManager.publishMessage("makieta/sensors", gasAlarmActive ? "GAS_ALARM" : "GAS_OK");
+  //   connectionManager.publishMessage("makieta/czujniki/srodowisko/zew", envManager.getSensorJson());
+  //   connectionManager.publishMessage("makieta/czujniki/srodowisko/wew", indoorEnvManager.getSensorJson());
+  //   connectionManager.publishMessage("makieta/czujniki/swiatlo", lightManager.getSensorJson());
+
+  //   // Uporządkowane wypisywanie do konsoli
+  //   Serial.println("\n------------- AKTUALIZACJA DANYCH --------------");
+
+  //   Serial.print(" Odczyt swiatla:  ");
+  //   Serial.print(lightManager.getLux(), 1);
+  //   Serial.println(" lx");
+
+  //   Serial.print(" Wnetrze:         ");
+  //   Serial.print(indoorEnvManager.getTemp(), 1);
+  //   Serial.print(" *C,  ");
+  //   Serial.print(indoorEnvManager.getHum(), 1);
+  //   Serial.print(" %,  ");
+  //   Serial.print(indoorEnvManager.getPress(), 1);
+  //   Serial.println(" hPa");
+
+  //   Serial.print(" Zewnatrz:        ");
+  //   Serial.print(envManager.getTemp(), 1);
+  //   Serial.print(" *C,  ");
+  //   Serial.print(envManager.getHum(), 1);
+  //   Serial.println(" %");
+
+  //   Serial.print(" Aktywny tryb:    ");
+  //   Serial.println(isNightMode ? "NOC" : "DZIEN");
+
+  //   Serial.println("------------------------------------------------");
+  // }
+
   // --- HEARTBEAT (raz na 5 sekund) ---
   static unsigned long lastAppUpdate = 0;
   if (millis() - lastAppUpdate > 5000) {
     lastAppUpdate = millis();
 
-    // Wysyłka MQTT (bez zmian)
+    // 1. Wysyłka MQTT stanu czujników (Twój stary kod)
     connectionManager.publishMessage("makieta/sensors", waterAlarmActive ? "WATER_ALARM" : "WATER_OK");
     connectionManager.publishMessage("makieta/sensors", gasAlarmActive ? "GAS_ALARM" : "GAS_OK");
     connectionManager.publishMessage("makieta/czujniki/srodowisko/zew", envManager.getSensorJson());
     connectionManager.publishMessage("makieta/czujniki/srodowisko/wew", indoorEnvManager.getSensorJson());
     connectionManager.publishMessage("makieta/czujniki/swiatlo", lightManager.getSensorJson());
 
-    // Uporządkowane wypisywanie do konsoli
-    Serial.println("\n------------- AKTUALIZACJA DANYCH --------------");
+    // ============================================================
+    // 2. NOWE: WYSYŁANIE STATUSU SYSTEMÓW DLA APLIKACJI (KAFELKI)
+    // ============================================================
+    
+    // Sprawdzanie Oświetlenia: ON jeśli wewnątrz LUB na zewnątrz się świeci
+    String statusLight = "OFF";
+    if (ledManager.getWewState() == "ON" || ledManager.getZewState() == "ON") {
+        statusLight = "ON";
+    }
 
+    // Sprawdzanie Wentylacji: ON jeśli prędkość > 0
+    String statusVent = (fanManager.getSpeed() > 0) ? "ON" : "OFF";
+
+    // Sprawdzanie Alarmu: ALARM (włamanie), ARMED (uzbrojony), DISARMED (rozbrojony)
+    String statusSecurity = isSystemArmed ? "ARMED" : "DISARMED";
+    if (intrusionAlarmActive) {
+        statusSecurity = "ALARM"; 
+    }
+
+    // Pakowanie wszystkiego w formacie JSON
+    DynamicJsonDocument statusDoc(256);
+    statusDoc["status_light"] = statusLight;
+    statusDoc["status_vent"] = statusVent;
+    statusDoc["status_security"] = statusSecurity;
+    statusDoc["status_heating"] = "OFF"; // Ogrzewanie (na sztywno OFF, dopóki nie dodasz grzałki)
+
+    String statusJsonStr;
+    serializeJson(statusDoc, statusJsonStr);
+    
+    // Wysyłanie na temat MQTT z którego czyta aplikacja
+    connectionManager.publishMessage("makieta/status/systemy", statusJsonStr);
+    // ============================================================
+
+
+    // 3. Uporządkowane wypisywanie do konsoli (Twój stary kod)
+    Serial.println("\n------------- AKTUALIZACJA DANYCH --------------");
     Serial.print(" Odczyt swiatla:  ");
     Serial.print(lightManager.getLux(), 1);
     Serial.println(" lx");
@@ -291,7 +363,6 @@ void loop() {
 
     Serial.print(" Aktywny tryb:    ");
     Serial.println(isNightMode ? "NOC" : "DZIEN");
-
     Serial.println("------------------------------------------------");
   }
 
