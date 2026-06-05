@@ -182,12 +182,14 @@ class LightingActivity : AppCompatActivity() {
 
     // Логика работы переключателя автоматического режима
     private fun setupAutoModeSwitch() {
-        switchAutoMode.setOnCheckedChangeListener { _, isChecked ->
-            currentMode = if (isChecked) "auto" else "none"
-            // Убрали искусственное включение света. Теперь ждем ответа от Ардуино!
-            updateUIState()
-            saveState(currentTarget)
-            sendCommand()
+        switchAutoMode.setOnCheckedChangeListener { buttonView, isChecked ->
+            // Sprawdzamy czy zmiana pochodzi od fizycznego kliknięcia użytkownika
+            if (buttonView.isPressed) {
+                currentMode = if (isChecked) "auto" else "none"
+                updateUIState()
+                saveState(currentTarget)
+                sendCommand()
+            }
         }
     }
 
@@ -255,14 +257,23 @@ class LightingActivity : AppCompatActivity() {
     }
 
     private fun sendCommand() {
+        // 1. Standardowa komenda JSON do sterownika LED
         val topic = "makieta/oswietlenie/ustaw"
         val payload = """{
-            "target":"$currentTarget",
-            "state":"$isLightOn",
-            "mode":"$currentMode",
-            "brightness":$currentBrightness,
-            "color":{"r":$currentR,"g":$currentG,"b":$currentB}
-        }""".trimIndent()
+        "target":"$currentTarget",
+        "state":"$isLightOn",
+        "mode":"$currentMode",
+        "brightness":$currentBrightness,
+        "color":{"r":$currentR,"g":$currentG,"b":$currentB}
+    }""".trimIndent()
         mqttHandler.publish(topic, payload)
+
+        // 2. KRYTYCZNE DLA TWOJEGO PROBLEMU: Sterowanie flagą automatyki w ESP32
+        if (currentTarget == "zew") {
+            val autoTopic = "makieta/oswietlenie/automatyka"
+            // Jeśli currentMode to "auto", wysyłamy "ON", w przeciwnym razie "OFF"
+            val autoPayload = if (currentMode == "auto") "ON" else "OFF"
+            mqttHandler.publish(autoTopic, autoPayload)
+        }
     }
 }
