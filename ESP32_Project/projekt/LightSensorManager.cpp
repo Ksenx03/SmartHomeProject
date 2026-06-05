@@ -29,11 +29,6 @@ bool LightSensorManager::loop() {
         // Odczyt poziomu światła
         currentLux = lightMeter.readLightLevel();
 
-        // Agresywne logowanie do terminala
-        Serial.print("[BH1750] Aktualny odczyt z czujnika: ");
-        Serial.print(currentLux);
-        Serial.println(" lx");
-
         // Walidacja błędów biblioteki (wartości ujemne)
         if (currentLux < 0) {
             Serial.println("[BH1750] BLAD: Zwrocono wartosc ujemna.");

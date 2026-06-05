@@ -17,34 +17,31 @@
 #include "IndoorEnvironmentManager.h"
 #include "BlindsManager.h"
 
-// --- ZMIENNE STANU (STATE VARIABLES) ---
-const String AUTHORIZED_CARD_1 = "62CB0951";  // Zarejestrowana karta nr 1
-const String AUTHORIZED_CARD_2 = "C249BC54";  // Zarejestrowana karta nr 2
+const String AUTHORIZED_CARD_1 = "62CB0951";
+const String AUTHORIZED_CARD_2 = "C249BC54";
 
-bool isSystemArmed = false;         // Flaga uzbrojenia alarmu
-bool isNightMode = false;           // Flaga trybu nocnego
-bool intrusionAlarmActive = false;  // Flaga aktywnego alarmu włamania (wykrycie ruchu)
-bool wrongCardAlarm = false;        // Flaga alarmu użycia nieautoryzowanej karty RFID
+bool isSystemArmed = false;
+bool isNightMode = false;
+bool intrusionAlarmActive = false;
+bool wrongCardAlarm = false;
 
-// Statusy czujników awaryjnych
-bool waterAlarmActive = false;  // Alarm zalania
-bool waterSilenced = false;     // Wyciszenie alarmu zalania z poziomu aplikacji
-bool gasAlarmActive = false;    // Alarm gazu/dymu
-bool gasSilenced = false;       // Wyciszenie alarmu gazu z poziomu aplikacji
+bool waterAlarmActive = false;
+bool waterSilenced = false;
+bool gasAlarmActive = false;
+bool gasSilenced = false;
 
-// Timery do filtrowania szumów (debounce)
+bool isAutoLightModeEnabled = true;
+
 unsigned long waterTriggerTime = 0;
 unsigned long gasTriggerTime = 0;
 const unsigned long alarmDelayThreshold = 500;
 
-// Timery i zmienne dla logiki czytnika RFID
 unsigned long cardStartTime = 0;
 bool isCardHeld = false;
 const unsigned long armDelay = 5000;
 unsigned long lastCardSeenTime = 0;
 bool actionExecuted = false;
 
-// Inicjalizacja menedżerów
 ConnectionManager connectionManager;
 LedStripManager ledManager;
 BuzzerManager buzzerManager;
@@ -64,13 +61,38 @@ BlindsManager blindsManager;
 unsigned long lastDisplayUpdate = 0;
 const unsigned long displayUpdateInterval = 2000;
 
-// --- FUNKCJA WYMUSZONEGO ODŚWIEŻENIA OŚWIETLENIA ---
 void refreshLights() {
   ledManager.processCommand("{\"target\": \"wew\", \"state\": \"" + ledManager.getWewState() + "\"}");
   ledManager.processCommand("{\"target\": \"zew\", \"state\": \"" + ledManager.getZewState() + "\"}");
 }
 
-// --- RESETOWANIE WSZYSTKICH ALARMÓW ---
+// Pomocnicza funkcja generująca podwójne piknięcie "pik-pik" (Uzbrojenie)
+void playArmSound() {
+  // Pierwsze krótkie "pik"
+  buzzerManager.processCommand("{\"state\": \"ON\"}");
+  delay(120);
+  buzzerManager.processCommand("{\"state\": \"OFF\"}");
+  delay(80);  // przerwa
+
+  // Drugie krótkie "pik"
+  buzzerManager.processCommand("{\"state\": \"ON\"}");
+  delay(120);
+  buzzerManager.processCommand("{\"state\": \"OFF\"}");
+  delay(80);  // przerwa przed długim sygnałem
+
+  // Trzecie, dłuższe "piiiiik"
+  buzzerManager.processCommand("{\"state\": \"ON\"}");
+  delay(400);  // długość trzeciego sygnału
+  buzzerManager.processCommand("{\"state\": \"OFF\"}");
+}
+
+// Pomocnicza funkcja generująca jedno długie, niskie piknięcie (Rozbrojenie)
+void playDisarmSound() {
+  buzzerManager.processCommand("{\"state\": \"ON\"}");
+  delay(400);  // jedno dłuższe piknięcie sygnalizujące wyłączenie
+  buzzerManager.processCommand("{\"state\": \"OFF\"}");
+}
+
 void clearAllAlarms() {
   isSystemArmed = false;
   intrusionAlarmActive = false;
@@ -80,6 +102,8 @@ void clearAllAlarms() {
   gasAlarmActive = false;
   gasSilenced = false;
 
+  playDisarmSound();
+
   buzzerManager.processCommand("{\"state\": \"OFF\"}");
   ledManager.setAlarmMode(NONE);
   refreshLights();
@@ -88,69 +112,48 @@ void clearAllAlarms() {
   connectionManager.publishMessage("makieta/access/status", "DISARMED");
   connectionManager.publishMessage("makieta/sensors", "WATER_OK");
   connectionManager.publishMessage("makieta/sensors", "GAS_OK");
+
+  sendSystemStatus();
 }
 
-// // --- CALLBACK MQTT ---
-// void mqttCallback(char* topic, byte* payload, unsigned int length) {
-//   String message = "";
-//   for (int i = 0; i < length; i++) message += (char)payload[i];
-//   String topicStr = String(topic);
+// --- FUNKCJA RAPORTUJĄCA STAN SYSTEMU DO APLIKACJI MOBILNEJ ---
+void sendSystemStatus() {
+  String statusLight = "OFF";
+  if (ledManager.getWewState() == "ON" || ledManager.getZewState() == "ON") {
+    statusLight = "ON";
+  }
 
-//   if (topic == "makieta/serwo/ustaw") {
-//     servoManager.processCommand(payloadStr);   // Drzwi zareagują na target "door"
-//     blindsManager.processCommand(payloadStr);  // Żaluzje zareagują na target "zaluzja"
-//   }
-//   else if (topicStr == "makieta/sensors/ustaw") {
-//     if (message == "water_off") {
-//       waterAlarmActive = false;
-//       waterSilenced = true;
-//       buzzerManager.processCommand("{\"state\": \"OFF\"}");
-//       ledManager.setAlarmMode(NONE);
-//       refreshLights();
-//       connectionManager.publishMessage("makieta/sensors", "WATER_OK");
-//     } else if (message == "gas_off") {
-//       gasAlarmActive = false;
-//       gasSilenced = true;
-//       buzzerManager.processCommand("{\"state\": \"OFF\"}");
-//       ledManager.setAlarmMode(NONE);
-//       refreshLights();
-//       connectionManager.publishMessage("makieta/sensors", "GAS_OK");
-//     }
-//   } else if (topicStr == "makieta/access/ustaw") {
-//     if (message == "unlock") {
-//       servoManager.openDoor();
-//       displayManager.showRfidMessage("Dostep", 2000);
-//     } else if (message == "ARM") {
-//       isSystemArmed = true;
-//       buzzerManager.triggerBeep(500);
-//       connectionManager.publishMessage("makieta/access/status", "ARMED");
-//     } else if (message == "DISARM") {
-//       clearAllAlarms();
-//     }
-//   } else if (topicStr == "makieta/oswietlenie/ustaw")
-//     ledManager.processCommand(message);
-//   else if (topicStr == "makieta/wentylator/ustaw") fanManager.processCommand(message);
-//   else if (topicStr == "makieta/buzzer/ustaw") buzzerManager.processCommand(message);
-//   //else if (topicStr == "makieta/serwo/ustaw") servoManager.processCommand(message);
-// }
+  String statusVent = (fanManager.getSpeed() > 0) ? "ON" : "OFF";
 
+  String statusSecurity = isSystemArmed ? "ARMED" : "DISARMED";
+  if (intrusionAlarmActive || wrongCardAlarm) {
+    statusSecurity = "ALARM";
+  }
 
-// --- CALLBACK MQTT ---
+  DynamicJsonDocument statusDoc(256);
+  statusDoc["status_light"] = statusLight;
+  statusDoc["status_vent"] = statusVent;
+  statusDoc["status_security"] = statusSecurity;
+  statusDoc["status_heating"] = "OFF";  // Miejsce na przyszłą integrację
+  statusDoc["status_auto_light"] = isAutoLightModeEnabled ? "ON" : "OFF";
+
+  String statusJsonStr;
+  serializeJson(statusDoc, statusJsonStr);
+  connectionManager.publishMessage("makieta/status/systemy", statusJsonStr);
+}
+
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  // 1. Konwersja payloadu (tablicy bajtów) na obiekt String
   String message = "";
   for (int i = 0; i < length; i++) message += (char)payload[i];
-  
-  // 2. Konwersja tematu na obiekt String dla bezpieczniejszych porównań
-  String topicStr = String(topic);
+  message.trim();
 
-  // --- PARSOWANIE KOMEND ---
+  String topicStr = String(topic);
+  topicStr.trim();
+
   if (topicStr == "makieta/serwo/ustaw") {
-    // Używamy zmiennej 'message', która zawiera nasz payload
-    servoManager.processCommand(message);   // Drzwi (reagują na target "door" lub brak targetu)
-    blindsManager.processCommand(message);  // Żaluzje (reagują na target "zaluzja")
-  } 
-  else if (topicStr == "makieta/sensors/ustaw") {
+    servoManager.processCommand(message);
+    blindsManager.processCommand(message);
+  } else if (topicStr == "makieta/sensors/ustaw") {
     if (message == "water_off") {
       waterAlarmActive = false;
       waterSilenced = true;
@@ -166,31 +169,38 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       refreshLights();
       connectionManager.publishMessage("makieta/sensors", "GAS_OK");
     }
-  } 
-  else if (topicStr == "makieta/access/ustaw") {
+  } else if (topicStr == "makieta/access/ustaw") {
     if (message == "unlock") {
       servoManager.openDoor();
       displayManager.showRfidMessage("Dostep", 2000);
     } else if (message == "ARM") {
       isSystemArmed = true;
+      playArmSound();
       buzzerManager.triggerBeep(500);
       connectionManager.publishMessage("makieta/access/status", "ARMED");
     } else if (message == "DISARM") {
+
       clearAllAlarms();
     }
-  } 
-  else if (topicStr == "makieta/oswietlenie/ustaw") {
+  } else if (topicStr == "makieta/oswietlenie/ustaw") {
     ledManager.processCommand(message);
-  }
-  else if (topicStr == "makieta/wentylator/ustaw") {
+    sendSystemStatus();  // <-- DODANE
+  } else if (topicStr == "makieta/wentylator/ustaw") {
     fanManager.processCommand(message);
-  }
-  else if (topicStr == "makieta/buzzer/ustaw") {
+    sendSystemStatus();  // <-- DODANE
+  } else if (topicStr == "makieta/buzzer/ustaw") {
     buzzerManager.processCommand(message);
+  } else if (topicStr == "makieta/oswietlenie/automatyka") {
+    if (message == "ON") {
+      isAutoLightModeEnabled = true;
+      Serial.println("[INFO] Tryb automatyczny (dzien/noc) WLACZONY");
+    } else if (message == "OFF") {
+      isAutoLightModeEnabled = false;
+      Serial.println("[INFO] Tryb automatyczny (dzien/noc) WYLACZONY - sterowanie reczne");
+    }
+    sendSystemStatus();  // <-- DODANE
   }
-  // Usunąłem stąd zduplikowane wywołanie dla "makieta/serwo/ustaw"
 }
-
 
 void setup() {
   Serial.begin(115200);
@@ -204,7 +214,7 @@ void setup() {
   Serial.println("\n[1] INICJALIZACJA WI-FI...");
   connectionManager.initWiFi();
   Serial.print(" -> Polaczono z siecia:  ");
-  Serial.println(WiFi.SSID());  // Pobiera nazwę aktualnej sieci
+  Serial.println(WiFi.SSID());
   Serial.print(" -> Adres IP ESP32:      ");
   Serial.println(WiFi.localIP());
 
@@ -214,7 +224,6 @@ void setup() {
   Serial.println(MQTT_SERVER);
   connectionManager.setupMQTT(MQTT_SERVER, MQTT_PORT);
   connectionManager.setCallback(mqttCallback);
-  // (Log o udanym połączeniu wypisze sama klasa ConnectionManager)
 
   // --- 3. I2C ORAZ CZUJNIKI ---
   Serial.println("\n[3] INICJALIZACJA CZUJNIKOW I MODULOW...");
@@ -229,8 +238,6 @@ void setup() {
   motionManager.init();
   doorbellManager.init();
   blindsManager.init();
-
-  // Dwa najważniejsze czujniki I2C
   indoorEnvManager.init();
 
   // --- 4. EKRAN OLED ---
@@ -256,21 +263,44 @@ void loop() {
   indoorEnvManager.loop();
   blindsManager.loop();
 
-  // --- HEARTBEAT (raz na 5 sekund) ---
+  // --- HEARTBEAT ---
   static unsigned long lastAppUpdate = 0;
   if (millis() - lastAppUpdate > 5000) {
     lastAppUpdate = millis();
 
-    // Wysyłka MQTT (bez zmian)
+    sendSystemStatus();
+
+    String statusLight = "OFF";
+    if (ledManager.getWewState() == "ON" || ledManager.getZewState() == "ON") {
+      statusLight = "ON";
+    }
+
+    String statusVent = (fanManager.getSpeed() > 0) ? "ON" : "OFF";
+
+    String statusSecurity = isSystemArmed ? "ARMED" : "DISARMED";
+    if (intrusionAlarmActive) {
+      statusSecurity = "ALARM";
+    }
+
+    DynamicJsonDocument statusDoc(256);
+    statusDoc["status_light"] = statusLight;
+    statusDoc["status_vent"] = statusVent;
+    statusDoc["status_security"] = statusSecurity;
+    statusDoc["status_heating"] = "OFF";
+    statusDoc["status_auto_light"] = isAutoLightModeEnabled ? "ON" : "OFF";
+
+    String statusJsonStr;
+    serializeJson(statusDoc, statusJsonStr);
+    connectionManager.publishMessage("makieta/status/systemy", statusJsonStr);
+
     connectionManager.publishMessage("makieta/sensors", waterAlarmActive ? "WATER_ALARM" : "WATER_OK");
     connectionManager.publishMessage("makieta/sensors", gasAlarmActive ? "GAS_ALARM" : "GAS_OK");
     connectionManager.publishMessage("makieta/czujniki/srodowisko/zew", envManager.getSensorJson());
     connectionManager.publishMessage("makieta/czujniki/srodowisko/wew", indoorEnvManager.getSensorJson());
     connectionManager.publishMessage("makieta/czujniki/swiatlo", lightManager.getSensorJson());
+    connectionManager.publishMessage("makieta/status/systemy", statusJsonStr);
 
-    // Uporządkowane wypisywanie do konsoli
     Serial.println("\n------------- AKTUALIZACJA DANYCH --------------");
-
     Serial.print(" Odczyt swiatla:  ");
     Serial.print(lightManager.getLux(), 1);
     Serial.println(" lx");
@@ -291,11 +321,10 @@ void loop() {
 
     Serial.print(" Aktywny tryb:    ");
     Serial.println(isNightMode ? "NOC" : "DZIEN");
-
     Serial.println("------------------------------------------------");
   }
 
-  // === ALGORYTM DZIEŃ / NOC ===
+  // --- ALGORYTM DZIEŃ / NOC ---
   static unsigned long lastLightControlTime = 0;
   if (millis() - lastLightControlTime > 1000) {
     lastLightControlTime = millis();
@@ -310,16 +339,24 @@ void loop() {
         blindsManager.closeBlinds();
         connectionManager.publishMessage("makieta/system/tryb", "NIGHT");
       }
-      int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
-      autoBrightness = constrain(autoBrightness, 50, 255);
-      String jsonCommand = "{\"target\": \"zew\", \"state\": \"ON\", \"brightness\": " + String(autoBrightness) + ", \"color\": {\"r\": 255, \"g\": 255, \"b\": 255}}";
-      ledManager.processCommand(jsonCommand);
+
+      if (isAutoLightModeEnabled) {
+        int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
+        autoBrightness = constrain(autoBrightness, 50, 255);
+
+        String jsonCommand = "{\"target\": \"zew\", \"state\": \"ON\", \"brightness\": " + String(autoBrightness) + ", \"color\": {\"r\": 255, \"g\": 255, \"b\": 255}}";
+        ledManager.processCommand(jsonCommand);
+      }
+
     } else if (currentLux > LUX_THRESHOLD_DAY) {
       if (isNightMode) {
         isNightMode = false;
         blindsManager.openBlinds();
         connectionManager.publishMessage("makieta/system/tryb", "DAY");
-        ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
+
+        if (isAutoLightModeEnabled) {
+          ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
+        }
       }
     }
 
@@ -376,24 +413,22 @@ void loop() {
     }
   }
 
-
   // --- LOGIKA CZUJNIKA RUCHU ---
-  // Funkcja loop() zwraca true TYLKO wtedy, gdy wykryto zbocze narastające (nowy ruch)
   if (motionManager.loop()) {
     Serial.println("\n[ALARM] >>> WYKRYTO RUCH W BUDYNKU! <<<");
-
     connectionManager.publishMessage("makieta/motion", "MOTION_DETECTED");
     if (isSystemArmed) {
       if (!intrusionAlarmActive) {
         intrusionAlarmActive = true;
         connectionManager.publishMessage("makieta/alarm/intrusion", "ACTIVE");
+        buzzerManager.processCommand("{\"state\": \"ON\"}");
         ledManager.setAlarmMode(INTRUSION_ALARM);
         displayManager.triggerAlarm("WYKRYTO RUCH!");
       }
     }
   }
 
-  // === AKTUALIZACJA WYŚWIETLACZA OLED ===
+  // --- AKTUALIZACJA WYŚWIETLACZA OLED ---
   if (millis() - lastDisplayUpdate >= displayUpdateInterval) {
     lastDisplayUpdate = millis();
     displayManager.updateSystemState(isSystemArmed);
@@ -401,13 +436,22 @@ void loop() {
   }
 
   // --- LOGIKA ALARMU WŁAMANIOWEGO (PIR) ---
-  if (motionManager.getIsEnabled() && motionManager.isMotion()) {
+  if (motionManager.loop()) {
+    Serial.println("\n[ALARM] >>> WYKRYTO RUCH W BUDYNKU! <<<");
+    connectionManager.publishMessage("makieta/motion", "MOTION_DETECTED");
+
     if (isSystemArmed && !intrusionAlarmActive) {
       intrusionAlarmActive = true;
+      
+      connectionManager.publishMessage("makieta/alarm/intrusion", "ACTIVE");
       connectionManager.publishMessage("makieta/access/status", "ALARM");
-      buzzerManager.processCommand("{\"state\": \"ON\"}");
+      
+      buzzerManager.processCommand("{\"state\": \"ON\"}"); 
       ledManager.setAlarmMode(INTRUSION_ALARM);
       displayManager.triggerAlarm("WYKRYTO RUCH!");
+      
+      // Natychmiastowa aktualizacja interfejsu (zmiana na ALARM)
+      sendSystemStatus();
     }
   }
 
@@ -421,7 +465,6 @@ void loop() {
       isCardHeld = true;
       actionExecuted = false;
 
-      // DODAĆ TE LINIJKI:
       Serial.print("\n[ZDARZENIE] >>> UZYTO KARTY RFID. UID: ");
       Serial.print(scannedUID);
       Serial.println(" <<<");
@@ -436,8 +479,10 @@ void loop() {
         isSystemArmed = !isSystemArmed;
         actionExecuted = true;
         connectionManager.publishMessage("makieta/access/status", isSystemArmed ? "ARMED" : "DISARMED");
-        if (isSystemArmed) buzzerManager.triggerBeep(500);
+        if (isSystemArmed) playArmSound();  // Zamiast dawnego buzzerManager.triggerBeep(500);
         else clearAllAlarms();
+
+        sendSystemStatus();
       }
     } else {
       if (!wrongCardAlarm) {
@@ -449,8 +494,9 @@ void loop() {
     }
   } else {
     if (isCardHeld && (millis() - lastCardSeenTime > 500)) {
-      if ((lastCardSeenTime - cardStartTime) < armDelay && !actionExecuted && !isSystemArmed)
+      if ((lastCardSeenTime - cardStartTime) < armDelay && !actionExecuted && !isSystemArmed) {
         servoManager.openDoor();
+      }
       isCardHeld = false;
     }
   }

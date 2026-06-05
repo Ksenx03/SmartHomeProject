@@ -29,7 +29,8 @@ void ConnectionManager::reconnectMQTT() {
             mqttClient.subscribe("makieta/buzzer/ustaw");
             mqttClient.subscribe("makieta/wentylator/ustaw");
             mqttClient.subscribe("makieta/serwo/ustaw");
-            mqttClient.subscribe("makieta/access/ustaw"); 
+            mqttClient.subscribe("makieta/access/ustaw");
+            mqttClient.subscribe("makieta/oswietlenie/automatyka"); 
             
             // ИСПРАВЛЕНО: Теперь топик совпадает с приложением (sensors вместо czujniki)
             mqttClient.subscribe("makieta/sensors/ustaw");
