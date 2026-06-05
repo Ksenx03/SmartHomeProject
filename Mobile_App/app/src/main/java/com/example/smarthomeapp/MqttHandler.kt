@@ -1,7 +1,6 @@
 package com.example.smarthomeapp
 
 import android.content.Context
-import android.util.Log
 import org.eclipse.paho.client.mqttv3.*
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 
@@ -27,8 +26,6 @@ class MqttHandler(context: Context) {
         try {
             client.connect(options, null, object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken?) {
-                    // Убираем отсюда жесткую подписку на access!
-                    // Мы будем подписываться в самих Активити
                     onConnected()
                 }
                 override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {}
@@ -36,7 +33,6 @@ class MqttHandler(context: Context) {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    // НОВАЯ ФУНКЦИЯ: теперь мы можем слушать что угодно
     fun subscribe(topic: String) {
         if (client.isConnected) {
             client.subscribe(topic, 0)

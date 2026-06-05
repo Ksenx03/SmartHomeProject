@@ -185,6 +185,8 @@
                 android:layout_height="wrap_content"
                 app:thumbTint="#00695C"
                 app:trackTint="#4D00695C" />
+
+
         </LinearLayout>
 
     </LinearLayout>

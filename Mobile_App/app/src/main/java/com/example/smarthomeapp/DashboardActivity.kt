@@ -15,17 +15,15 @@ class DashboardActivity : AppCompatActivity() {
 
     private lateinit var mqttHandler: MqttHandler
 
-    // Поля климата
+    // Pola klimatu (Tylko te, które faktycznie mają ID w XML!)
     private lateinit var tvDashboardTemp: TextView
     private lateinit var tvDashboardTempOut: TextView
     private lateinit var tvDashboardHum: TextView
     private lateinit var tvDashboardHumOut: TextView
-    private lateinit var tvDashboardLightIn: TextView
-    private lateinit var tvDashboardLight: TextView
-    private lateinit var tvDashboardPress: TextView
-    private lateinit var tvDashboardPressOut: TextView
+    private lateinit var tvDashboardLight: TextView // Tylko zewnątrz
+    private lateinit var tvDashboardPress: TextView // Tylko wewnątrz
 
-    // Поля статуса систем
+    // Pola statusu systemów
     private lateinit var statusLight: TextView
     private lateinit var statusHeating: TextView
     private lateinit var statusVent: TextView
@@ -35,28 +33,26 @@ class DashboardActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dashboard)
 
-        // Элементы навигации
+        // Elementy nawigacji
         val themeBtn = findViewById<ImageView>(R.id.ivThemeToggle)
         val ivLogout = findViewById<ImageView>(R.id.ivLogout)
         val ivCloud = findViewById<ImageView>(R.id.ivConnectionStatus)
 
-        // Инициализация полей климата
+        // Inicjalizacja pól klimatu
         tvDashboardTemp = findViewById(R.id.tvDashboardTemp)
         tvDashboardTempOut = findViewById(R.id.tvDashboardTempOut)
         tvDashboardHum = findViewById(R.id.tvDashboardHum)
         tvDashboardHumOut = findViewById(R.id.tvDashboardHumOut)
-        tvDashboardLightIn = findViewById(R.id.tvDashboardLightIn)
-        tvDashboardLight = findViewById(R.id.tvDashboardLight)
-        tvDashboardPress = findViewById(R.id.tvDashboardPress)
-        tvDashboardPressOut = findViewById(R.id.tvDashboardPressOut)
+        tvDashboardLight = findViewById(R.id.tvDashboardLight) // Zewnątrz
+        tvDashboardPress = findViewById(R.id.tvDashboardPress) // Wewnątrz
 
-        // Инициализация статусов систем
+        // Inicjalizacja statusów systemów
         statusLight = findViewById(R.id.statusLight)
         statusHeating = findViewById(R.id.statusHeating)
         statusVent = findViewById(R.id.statusVent)
         statusSecurity = findViewById(R.id.statusSecurity)
 
-        // Карточки перехода
+        // Przyciski menu
         val btnHeating = findViewById<CardView>(R.id.btnHeating)
         val btnVentilation = findViewById<CardView>(R.id.btnVentilation)
         val btnSensors = findViewById<CardView>(R.id.btnWater)
@@ -64,7 +60,7 @@ class DashboardActivity : AppCompatActivity() {
         val btnLighting = findViewById<CardView>(R.id.btnLighting)
         val btnBlinds = findViewById<CardView>(R.id.btnBlinds)
 
-        // Инициализация MQTT
+        // Inicjalizacja MQTT
         mqttHandler = MqttHandler(this)
 
         mqttHandler.connect(
@@ -72,7 +68,7 @@ class DashboardActivity : AppCompatActivity() {
                 runOnUiThread {
                     ivCloud.setColorFilter(Color.parseColor("#4CAF50"))
                 }
-                mqttHandler.subscribe("makieta/czujniki/srodowisko")
+                mqttHandler.subscribe("makieta/czujniki/srodowisko/#")
                 mqttHandler.subscribe("makieta/czujniki/swiatlo")
                 mqttHandler.subscribe("makieta/status/systemy")
             },
@@ -83,7 +79,7 @@ class DashboardActivity : AppCompatActivity() {
             }
         )
 
-        // --- КНОПКИ ПЕРЕХОДА ---
+        // --- NAWIGACJA ---
         btnSensors.setOnClickListener { startActivity(Intent(this, SensorsActivity::class.java)) }
         btnAccess.setOnClickListener { startActivity(Intent(this, AccessActivity::class.java)) }
         btnLighting.setOnClickListener { startActivity(Intent(this, LightingActivity::class.java)) }
@@ -105,13 +101,11 @@ class DashboardActivity : AppCompatActivity() {
         }
     }
 
-    // МАКСИМАЛЬНО ВАЖНО: Метод срабатывает ПРИ КАЖДОМ ВОЗВРАЩЕНИИ на этот экран!
     override fun onResume() {
         super.onResume()
         loadCachedSystemStatuses()
     }
 
-    // Загружаем актуальные статусы из памяти телефона для мгновенной синхронизации
     private fun loadCachedSystemStatuses() {
         val prefs = getSharedPreferences("SmartHomePrefs", Context.MODE_PRIVATE)
 
@@ -124,12 +118,11 @@ class DashboardActivity : AppCompatActivity() {
         updateSystemStatus(statusHeating, heatingState)
         updateSystemStatus(statusVent, ventState)
 
-        // Отдельная покраска охраны: ARMED - красный, остальное - серый
         statusSecurity.text = securityState
         if (securityState == "ARMED") {
-            statusSecurity.setTextColor(Color.parseColor("#FF5252")) // Красный
+            statusSecurity.setTextColor(Color.parseColor("#FF5252")) // Czerwony
         } else {
-            statusSecurity.setTextColor(Color.parseColor("#808080")) // Серый
+            statusSecurity.setTextColor(Color.parseColor("#808080")) // Szary
         }
     }
 
@@ -140,19 +133,28 @@ class DashboardActivity : AppCompatActivity() {
                 val json = JSONObject(cleanMsg)
                 val prefs = getSharedPreferences("SmartHomePrefs", Context.MODE_PRIVATE)
 
-                // Климатические данные (EnvironmentManager)
-                if (json.has("temperature")) tvDashboardTemp.text = "${json.optString("temperature", "--")} °C"
-                if (json.has("humidity")) tvDashboardHum.text = "${json.optString("humidity", "--")} %"
-                if (json.has("pressure")) tvDashboardPress.text = "${json.optString("pressure", "--")} hPa"
+                // Wnętrze: Temperatura, Wilgotność, Ciśnienie
+                if (json.has("indoor")) {
+                    val indoor = json.getJSONObject("indoor")
+                    if (indoor.has("temperature")) tvDashboardTemp.text = "${indoor.optString("temperature", "--")} °C"
+                    if (indoor.has("humidity")) tvDashboardHum.text = "${indoor.optString("humidity", "--")} %"
+                    if (indoor.has("pressure")) tvDashboardPress.text = "${indoor.optString("pressure", "--")} hPa"
+                }
 
-                // Люксы (LightSensorManager)
+                // Zewnątrz: Temperatura, Wilgotność
+                if (json.has("outdoor")) {
+                    val outdoor = json.getJSONObject("outdoor")
+                    if (outdoor.has("temperature")) tvDashboardTempOut.text = "${outdoor.optString("temperature", "--")} °C"
+                    if (outdoor.has("humidity")) tvDashboardHumOut.text = "${outdoor.optString("humidity", "--")} %"
+                }
+
+                // Światło (tylko zewnątrz)
                 if (json.has("lux")) {
                     val light = json.optString("lux", "--")
                     tvDashboardLight.text = "$light lx"
-                    tvDashboardLightIn.text = "$light lx"
                 }
 
-                // Ловим сетевые статусы систем и кэшируем их в память
+                // Statusy Systemów
                 if (json.has("status_light")) {
                     val state = json.getString("status_light")
                     prefs.edit().putString("status_light", state).apply()
@@ -180,13 +182,12 @@ class DashboardActivity : AppCompatActivity() {
         }
     }
 
-    // Красим ON в зеленый, OFF в серый
     private fun updateSystemStatus(textView: TextView, status: String) {
         textView.text = status
         if (status == "ON" || status == "RUNNING") {
-            textView.setTextColor(Color.parseColor("#4CAF50")) // Зеленый
+            textView.setTextColor(Color.parseColor("#4CAF50")) // Zielony
         } else {
-            textView.setTextColor(Color.parseColor("#808080")) // Серый
+            textView.setTextColor(Color.parseColor("#808080")) // Szary
         }
     }
 }
