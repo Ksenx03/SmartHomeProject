@@ -6,6 +6,7 @@
     android:layout_height="match_parent"
     android:padding="24dp">
 
+    <!-- Кнопка "Назад" -->
     <ImageView
         android:id="@+id/btnBack"
         android:layout_width="32dp"
@@ -15,6 +16,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:tint="#00695C" />
 
+    <!-- Заголовок экрана -->
     <TextView
         android:id="@+id/tvBlindsTitle"
         android:layout_width="wrap_content"
@@ -22,60 +24,115 @@
         android:text="@string/title_window_blinds"
         android:textSize="24sp"
         android:textStyle="bold"
+        android:textColor="#00695C"
         android:layout_marginStart="16dp"
         app:layout_constraintTop_toTopOf="@id/btnBack"
         app:layout_constraintBottom_toBottomOf="@id/btnBack"
         app:layout_constraintStart_toEndOf="@id/btnBack" />
 
+    <!-- Полупрозрачная оконная рама -->
     <androidx.cardview.widget.CardView
         android:id="@+id/windowFrame"
         android:layout_width="200dp"
         android:layout_height="250dp"
-        android:layout_marginTop="40dp"
-        app:cardCornerRadius="12dp"
-        app:cardBackgroundColor="#E3F2FD"
+        android:layout_marginTop="36dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="#2600695C"
         app:layout_constraintTop_toBottomOf="@id/tvBlindsTitle"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <!-- Полупрозрачное полотно жалюзи -->
         <View
             android:id="@+id/blindsView"
             android:layout_width="match_parent"
             android:layout_height="125dp"
-            android:background="#78909C" />
+            android:background="#B300695C" />
     </androidx.cardview.widget.CardView>
 
+    <!-- Индикатор текущего положения штор -->
     <TextView
         android:id="@+id/tvStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="50%"
-        android:layout_marginTop="20dp"
+        android:textSize="28sp"
         android:textStyle="bold"
+        android:textColor="#00695C"
+        android:layout_marginTop="20dp"
         app:layout_constraintTop_toBottomOf="@id/windowFrame"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <!-- Ползунок в фирменном цвете -->
     <SeekBar
         android:id="@+id/sbBlinds"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:max="100"
-        android:progress="50"
+        android:progress="100"
+        android:progressTint="#00695C"
+        android:thumbTint="#00695C"
         app:layout_constraintTop_toBottomOf="@id/tvStatus"/>
 
-    <GridLayout
+    <!-- Верхний ряд кнопок (Open / Closed) -->
+    <LinearLayout
+        android:id="@+id/rowButtons1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:columnCount="2"
-        android:layout_marginTop="32dp"
+        android:orientation="horizontal"
+        android:layout_marginTop="28dp"
         app:layout_constraintTop_toBottomOf="@id/sbBlinds">
 
-        <Button android:id="@+id/btnOpen" android:layout_width="0dp" android:layout_columnWeight="1" android:text="@string/btn_open" android:layout_margin="4dp" style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-        <Button android:id="@+id/btnClosed" android:layout_width="0dp" android:layout_columnWeight="1" android:text="@string/btn_closed" android:layout_margin="4dp" style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-        <Button android:id="@+id/btn30" android:layout_width="0dp" android:layout_columnWeight="1" android:text="30%" android:layout_margin="4dp" style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-        <Button android:id="@+id/btn60" android:layout_width="0dp" android:layout_columnWeight="1" android:text="60%" android:layout_margin="4dp" style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-    </GridLayout>
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnOpen"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/btn_open"
+            android:textColor="#00695C"
+            android:background="@drawable/bg_heating_button"
+            android:layout_marginEnd="8dp"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnClosed"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/btn_closed"
+            android:textColor="#00695C"
+            android:background="@drawable/bg_heating_button"/>
+    </LinearLayout>
+
+    <!-- Нижний ряд кнопок (30% / 60%) -->
+    <LinearLayout
+        android:id="@+id/rowButtons2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/rowButtons1">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn30"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="30%"
+            android:textColor="#00695C"
+            android:background="@drawable/bg_heating_button"
+            android:layout_marginEnd="8dp"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn60"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="60%"
+            android:textColor="#00695C"
+            android:background="@drawable/bg_heating_button"/>
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
