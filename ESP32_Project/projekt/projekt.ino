@@ -16,6 +16,7 @@
 #include "DoorbellManager.h"
 #include "IndoorEnvironmentManager.h"
 #include "BlindsManager.h"
+#include "ClimateManager.h"
 
 const String AUTHORIZED_CARD_1 = "62CB0951";
 const String AUTHORIZED_CARD_2 = "C249BC54";
@@ -57,6 +58,9 @@ DoorbellManager doorbellManager;
 EnvironmentManager envManager;
 IndoorEnvironmentManager indoorEnvManager;
 BlindsManager blindsManager;
+
+// TUTAJ DODANO BRAKUJĄCĄ DEKLARACJĘ OBIEKTU:
+ClimateManager climateManager(16);
 
 unsigned long lastDisplayUpdate = 0;
 const unsigned long displayUpdateInterval = 2000;
@@ -150,9 +154,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   String topicStr = String(topic);
   topicStr.trim();
 
-  if (topicStr == "makieta/serwo/ustaw") {
-    servoManager.processCommand(message);
-    blindsManager.processCommand(message);
+  // TUTAJ DODANO BRAKUJĄCE KOMENDY MQTT DLA KLIMATYZACJI:
+  if (topicStr == "makieta/sterowanie/ogrzewanie/temperatura") {
+    float temp = message.toFloat();
+    climateManager.setTargetTemp(temp);
+  } else if (topicStr == "makieta/sterowanie/ogrzewanie/stan") {
+    climateManager.setActive(message == "ON");
+  } else if (topicStr == "makieta/serwo/ustaw") {
+    if (message.indexOf("zaluzja") >= 0) {
+      blindsManager.processCommand(message);  // Команда только для жалюзи (GPIO 14)
+    } else {
+      servoManager.processCommand(message);   // Команда только для двери (GPIO 27)
+    }
   } else if (topicStr == "makieta/sensors/ustaw") {
     if (message == "water_off") {
       waterAlarmActive = false;
@@ -179,15 +192,14 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       buzzerManager.triggerBeep(500);
       connectionManager.publishMessage("makieta/access/status", "ARMED");
     } else if (message == "DISARM") {
-
       clearAllAlarms();
     }
   } else if (topicStr == "makieta/oswietlenie/ustaw") {
     ledManager.processCommand(message);
-    sendSystemStatus();  // <-- DODANE
+    sendSystemStatus(); 
   } else if (topicStr == "makieta/wentylator/ustaw") {
     fanManager.processCommand(message);
-    sendSystemStatus();  // <-- DODANE
+    sendSystemStatus(); 
   } else if (topicStr == "makieta/buzzer/ustaw") {
     buzzerManager.processCommand(message);
   } else if (topicStr == "makieta/oswietlenie/automatyka") {
@@ -198,8 +210,14 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       isAutoLightModeEnabled = false;
       Serial.println("[INFO] Tryb automatyczny (dzien/noc) WYLACZONY - sterowanie reczne");
     }
-    sendSystemStatus();  // <-- DODANE
+    sendSystemStatus(); 
   }
+}
+
+void publishBlindsStatus(int pos) {
+  String payload = "{\"target\":\"zaluzja\",\"position\":" + String(pos) + "}";
+  connectionManager.publishMessage("makieta/serwo/status", payload.c_str());
+  Serial.printf("[MQTT] Опубликован статус жалюзи: %s\n", payload.c_str());
 }
 
 void setup() {
@@ -239,6 +257,8 @@ void setup() {
   doorbellManager.init();
   blindsManager.init();
   indoorEnvManager.init();
+  blindsManager.setPositionCallback(publishBlindsStatus);
+  climateManager.init();
 
   // --- 4. EKRAN OLED ---
   Serial.println("\n[4] INICJALIZACJA EKRANU OLED...");
@@ -262,6 +282,19 @@ void loop() {
   lightManager.loop();
   indoorEnvManager.loop();
   blindsManager.loop();
+
+if (Serial.available() > 0) {
+    String command = Serial.readStringUntil('\n');
+    command.trim(); // Usuwa puste znaki i entery
+
+    if (command == "HEAT ON") {
+      climateManager.setActive(true);
+      Serial.println("[TERMINAL] Ogrzewanie WLACZONE (Przekaznik zwarty)");
+    } else if (command == "HEAT OFF") {
+      climateManager.setActive(false);
+      Serial.println("[TERMINAL] Ogrzewanie WYLACZONE (Przekaznik rozwarty)");
+    }
+  }
 
   // --- HEARTBEAT ---
   static unsigned long lastAppUpdate = 0;
@@ -324,6 +357,12 @@ void loop() {
     Serial.println("------------------------------------------------");
   }
 
+  // Считываем климат и отдаем скорость вентилятору
+  int requiredFanSpeed = climateManager.update(indoorEnvManager.getTemp());
+  if (climateManager.getIsActive() || indoorEnvManager.getTemp() >= 40.0) {
+      fanManager.setSpeed(requiredFanSpeed);
+  }
+
   // --- ALGORYTM DZIEŃ / NOC ---
   static unsigned long lastLightControlTime = 0;
   if (millis() - lastLightControlTime > 1000) {
@@ -333,32 +372,34 @@ void loop() {
     const float LUX_THRESHOLD_NIGHT = 100.0;
     const float LUX_THRESHOLD_DAY = 120.0;
 
-    if (currentLux < LUX_THRESHOLD_NIGHT) {
+  if (currentLux < LUX_THRESHOLD_NIGHT) {
       if (!isNightMode) {
-        isNightMode = true;
-        blindsManager.closeBlinds();
-        connectionManager.publishMessage("makieta/system/tryb", "NIGHT");
+          isNightMode = true;
+          blindsManager.closeBlinds();
+          connectionManager.publishMessage("makieta/system/tryb", "NIGHT");
+          connectionManager.publishMessage("makieta/serwo/status", "{\"target\":\"zaluzja\",\"position\":100}");
       }
 
       if (isAutoLightModeEnabled) {
-        int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
-        autoBrightness = constrain(autoBrightness, 50, 255);
+          int autoBrightness = map((long)currentLux, LUX_THRESHOLD_NIGHT, 0, 50, 255);
+          autoBrightness = constrain(autoBrightness, 50, 255);
 
-        String jsonCommand = "{\"target\": \"zew\", \"state\": \"ON\", \"brightness\": " + String(autoBrightness) + ", \"color\": {\"r\": 255, \"g\": 255, \"b\": 255}}";
-        ledManager.processCommand(jsonCommand);
+          String jsonCommand = "{\"target\": \"zew\", \"state\": \"ON\", \"brightness\": " + String(autoBrightness) + ", \"color\": {\"r\": 255, \"g\": 255, \"b\": 255}}";
+          ledManager.processCommand(jsonCommand);
       }
 
-    } else if (currentLux > LUX_THRESHOLD_DAY) {
+  } else if (currentLux > LUX_THRESHOLD_DAY) {
       if (isNightMode) {
-        isNightMode = false;
-        blindsManager.openBlinds();
-        connectionManager.publishMessage("makieta/system/tryb", "DAY");
+          isNightMode = false;
+          blindsManager.openBlinds();
+          connectionManager.publishMessage("makieta/system/tryb", "DAY");
+          connectionManager.publishMessage("makieta/serwo/status", "{\"target\":\"zaluzja\",\"position\":0}");
 
-        if (isAutoLightModeEnabled) {
-          ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
-        }
+          if (isAutoLightModeEnabled) {
+              ledManager.processCommand("{\"target\": \"zew\", \"state\": \"OFF\"}");
+          }
       }
-    }
+  }
 
     displayManager.updateLighting((int)currentLux, ledManager.getWewState(), ledManager.getZewState());
   }
@@ -450,7 +491,6 @@ void loop() {
       ledManager.setAlarmMode(INTRUSION_ALARM);
       displayManager.triggerAlarm("WYKRYTO RUCH!");
       
-      // Natychmiastowa aktualizacja interfejsu (zmiana na ALARM)
       sendSystemStatus();
     }
   }
@@ -479,7 +519,7 @@ void loop() {
         isSystemArmed = !isSystemArmed;
         actionExecuted = true;
         connectionManager.publishMessage("makieta/access/status", isSystemArmed ? "ARMED" : "DISARMED");
-        if (isSystemArmed) playArmSound();  // Zamiast dawnego buzzerManager.triggerBeep(500);
+        if (isSystemArmed) playArmSound();  
         else clearAllAlarms();
 
         sendSystemStatus();

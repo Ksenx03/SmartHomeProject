@@ -16,10 +16,12 @@ private:
     void updateFan();     // Aktualizacja fizycznego sygnału PWM
 
 public:
+    
     FanManager();
     void init();
     void processCommand(String jsonCommand);
     int getSpeed();
+    void setSpeed(int speed);
 };
 
 #endif

@@ -89,3 +89,21 @@ int FanManager::getSpeed() {
     }
     return currentSpeed; // Zwracamy aktualną moc
 }
+
+void FanManager::setSpeed(int speed) {
+    // Zabezpieczenie przed wartościami spoza zakresu 0-100
+    if (speed < 0) speed = 0;
+    if (speed > 100) speed = 100;
+
+    currentSpeed = speed;
+    
+    // Jeśli prędkość jest większa od 0, włączamy wentylator, w przeciwnym razie wyłączamy
+    if (currentSpeed > 0) {
+        isOn = true;
+    } else {
+        isOn = false;
+    }
+    
+    // Zastosowanie zmian na fizycznym pinie PWM
+    updateFan();
+}

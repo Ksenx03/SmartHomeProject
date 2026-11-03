@@ -30,7 +30,7 @@ void ServoManager::setServoAngle(int angle) {
 
 void ServoManager::openDoor() {
   if (!isDoorOpen) {
-    setServoAngle(100);  // Otwarcie drzwi pod kątem 100 stopni
+    setServoAngle(150);  // Otwarcie drzwi pod kątem 100 stopni
     isDoorOpen = true;
     doorOpenTime = millis();
     Serial.println("Zamek: Drzwi OTWARTE (Sterowanie LEDC)");

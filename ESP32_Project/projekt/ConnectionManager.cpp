@@ -31,6 +31,8 @@ void ConnectionManager::reconnectMQTT() {
             mqttClient.subscribe("makieta/serwo/ustaw");
             mqttClient.subscribe("makieta/access/ustaw");
             mqttClient.subscribe("makieta/oswietlenie/automatyka"); 
+            mqttClient.subscribe("makieta/sterowanie/ogrzewanie/stan");
+            mqttClient.subscribe("makieta/sterowanie/ogrzewanie/temperatura");
             
             // ИСПРАВЛЕНО: Теперь топик совпадает с приложением (sensors вместо czujniki)
             mqttClient.subscribe("makieta/sensors/ustaw");
@@ -40,7 +42,7 @@ void ConnectionManager::reconnectMQTT() {
         } else {
             Serial.print("Blad polaczenia, rc = ");
             Serial.print(mqttClient.state());
-            Serial.println(" Sprobuj ponownie за 5 секунд.");
+            Serial.println(" Sprobuj ponownie za 5 sekund.");
             delay(5000);
         }
     }

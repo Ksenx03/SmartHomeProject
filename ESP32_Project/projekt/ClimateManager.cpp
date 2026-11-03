@@ -1,38 +1,47 @@
 #include "ClimateManager.h"
 
-ClimateManager::ClimateManager() : peltierState(false), fanState(false) {}
+// Konstruktor przypisujący pin 16 do zmiennej relayPin
+ClimateManager::ClimateManager(int pin) {
+    relayPin = pin;
+    isActive = false;
+    targetTemp = 20.0;
+}
 
 void ClimateManager::init() {
-    // Deliberately empty - no pin activity
+    pinMode(relayPin, OUTPUT);
+    // Wymuszamy stan niski na starcie systemu, aby Peltier nie grzał od razu
+    digitalWrite(relayPin, LOW); 
 }
 
-void ClimateManager::setPeltier(bool state) {
-    peltierState = state;
+// Funkcja włączająca lub wyłączająca grzanie
+void ClimateManager::setActive(bool state) {
+    isActive = state;
+    
+    // Jeśli state to true (ON), wysyłamy HIGH na przekaźnik. W przeciwnym razie LOW.
+    if (isActive) {
+        digitalWrite(relayPin, HIGH); 
+        Serial.println("Ogrzewanie ON - przekaznik zwarty");
+    } else {
+        digitalWrite(relayPin, LOW);
+        Serial.println("Ogrzewanie OFF - przekaznik rozwarty");
+    }
 }
 
-void ClimateManager::setFan(bool state) {
-    fanState = state;
+bool ClimateManager::getIsActive() {
+    return isActive;
 }
 
-void ClimateManager::togglePeltier() {
-    setPeltier(!peltierState);
+void ClimateManager::setTargetTemp(float temp) {
+    targetTemp = temp;
 }
 
-void ClimateManager::toggleFan() {
-    setFan(!fanState);
-}
-
-bool ClimateManager::getPeltierState() const {
-    return peltierState;
-}
-
-bool ClimateManager::getFanState() const {
-    return fanState;
-}
-
-void ClimateManager::processCommand(const String& target, const String& stateCmd) {
-    bool targetState = (stateCmd == "ON" || stateCmd == "1" || stateCmd == "true");
-    (void)target;
-    (void)targetState;
-    // Deliberately empty - no pin or serial activity
+// Prosty przykład funkcji, która reguluje wentylator na podstawie grzania
+int ClimateManager::update(float currentTemp) {
+    if (isActive) {
+        // Kiedy grzejemy Peltierem, wentylator musi kręcić się na 100%, aby rozprowadzać ciepło
+        return 100; 
+    }
+    
+    // Kiedy nie grzejemy, możemy wyłączyć wentylator (lub ustawić inną wartość)
+    return 0; 
 }

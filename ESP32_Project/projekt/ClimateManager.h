@@ -1,30 +1,24 @@
-#ifndef CLIMATE_MANAGER_H
-#define CLIMATE_MANAGER_H
+#ifndef CLIMATEMANAGER_H
+#define CLIMATEMANAGER_H
 
 #include <Arduino.h>
 
 class ClimateManager {
 private:
-    const uint8_t pinPeltier = 16;
-    const uint8_t pinFan = 17;
-    
-    bool peltierState;
-    bool fanState;
+    int relayPin;
+    bool isActive;
+    float targetTemp;
 
 public:
-    ClimateManager();
+    ClimateManager(int pin);
+    
     void init();
+    void setActive(bool state);
+    bool getIsActive();
+    void setTargetTemp(float temp);
     
-    void setPeltier(bool state);
-    void setFan(bool state);
-    void togglePeltier();
-    void toggleFan();
-    
-    bool getPeltierState() const;
-    bool getFanState() const;
-    
-    // Metoda pomocnicza do parsowania komend tekstowych (np. z MQTT)
-    void processCommand(const String& target, const String& stateCmd);
+    // Zostawiamy tę metodę, bo używasz jej w projekt.ino do sterowania wentylatorem
+    int update(float currentTemp); 
 };
 
-#endif // CLIMATE_MANAGER_H
+#endif
