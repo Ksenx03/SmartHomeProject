@@ -23,7 +23,7 @@
 
 /// Na to:
 // #define MQTT_SERVER "172.20.10.4"
-#define MQTT_SERVER "192.168.1.89"
+#define MQTT_SERVER "192.168.1.88"
 #define MQTT_PORT 1883
 
 #endif

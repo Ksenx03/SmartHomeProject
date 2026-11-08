@@ -4,6 +4,7 @@ BuzzerManager::BuzzerManager() {
   isBeeping = false;
   isDingDong = false;
   beepEndTime = 0;
+  nextToneTime = 0;
 }
 
 void BuzzerManager::init() {
@@ -14,9 +15,9 @@ void BuzzerManager::init() {
 
 void BuzzerManager::setBuzzerState(bool state) {
   if (state) {
-    digitalWrite(PIN_BUZZER, HIGH);
+    tone(PIN_BUZZER, 2000);
   } else {
-    noTone(PIN_BUZZER); // Обязательно выключаем генератор тона
+    noTone(PIN_BUZZER);
     digitalWrite(PIN_BUZZER, LOW);
   }
 }
@@ -31,7 +32,7 @@ void BuzzerManager::triggerBeep(unsigned int durationMs) {
 void BuzzerManager::triggerDoorbell() {
   isBeeping = true;
   isDingDong = true;
-  tone(PIN_BUZZER, 988); // "Ding"
+  tone(PIN_BUZZER, 988);
   nextToneTime = millis() + 300;
   beepEndTime = millis() + 800;
 }
@@ -41,25 +42,21 @@ void BuzzerManager::processCommand(String jsonCommand) {
   DeserializationError error = deserializeJson(doc, jsonCommand);
   if (error) return;
 
-  // 1. Дверной звонок
   if (doc.containsKey("action") && doc["action"] == "doorbell") {
     triggerDoorbell();
   }
 
-  // 2. Управление состоянием (Alarm / Manual OFF)
   if (doc.containsKey("state")) {
     bool state = (doc["state"] == "ON");
     if (state) {
-      tone(PIN_BUZZER, 2000); // Постоянный писк
+      setBuzzerState(true);
     } else {
-      noTone(PIN_BUZZER);
-      digitalWrite(PIN_BUZZER, LOW);
-      isBeeping = false;     // Останавливаем все таймеры
+      setBuzzerState(false);
+      isBeeping = false;
       isDingDong = false;
     }
   }
 
-  // 3. Короткий пик
   if (doc.containsKey("action") && doc["action"] == "beep") {
     unsigned int duration = doc.containsKey("duration") ? doc["duration"] : 500;
     triggerBeep(duration);
@@ -73,13 +70,12 @@ void BuzzerManager::loop() {
 
   if (isDingDong) {
     if (now >= nextToneTime && now < beepEndTime) {
-      tone(PIN_BUZZER, 784); // "Dong"
+      tone(PIN_BUZZER, 784);
     }
   }
 
   if (now >= beepEndTime) {
-    noTone(PIN_BUZZER);
-    digitalWrite(PIN_BUZZER, LOW);
+    setBuzzerState(false);
     isBeeping = false;
     isDingDong = false;
   }

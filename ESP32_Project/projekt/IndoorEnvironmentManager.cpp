@@ -1,6 +1,5 @@
 #include "IndoorEnvironmentManager.h"
 
-// KONSTRUKTOR: Podajemy zdefiniowane parametry DOKŁADNIE jak w dzialajacym kodzie V2!
 IndoorEnvironmentManager::IndoorEnvironmentManager() : aht20(AHTXX_ADDRESS_X38, AHT2x_SENSOR) {
     lastReadTime = 0;
     currentTemp = 0.0;
@@ -16,25 +15,22 @@ void IndoorEnvironmentManager::init() {
     Serial.println("\n--- INICJALIZACJA MODULU AHT20 + BMP280 ---");
     
     Wire.begin(); 
-    delay(1000); // 1000ms opoznienia - dokladnie tak jak w dzialajacym skrypcie!
+    delay(1000);
     
-    // --- KROK 1: Inicjalizacja AHT20 ---
     ahtReady = aht20.begin();
     if (!ahtReady) {
-        Serial.println("[AHT20] BLAD: Czujnik AHT20 nadal nie odpowiada.");
+        Serial.println("[AHT20] BLAD: Czujnik AHT20 nie odpowiada.");
     } else {
-        Serial.println("[AHT20] SUKCES: AHT20 (AHTxx) dziala poprawnie!");
+        Serial.println("[AHT20] SUKCES: AHT20 dziala poprawnie!");
     }
 
-    // --- KROK 2: Inicjalizacja BMP280 ---
     bmpReady = bmp.begin(0x77); 
     if (!bmpReady) {
-        Serial.println("[BMP280] BLAD: BMP280 przestal dzialac.");
+        Serial.println("[BMP280] BLAD: Czujnik BMP280 nie odpowiada.");
     } else {
         Serial.println("[BMP280] SUKCES: BMP280 dziala poprawnie!");
     }
 
-    // Uruchom menedżera, jeśli działa CHOCIAŻ JEDEN podzespół
     if (ahtReady || bmpReady) {
         isInitialized = true;
         Serial.println("[AHT20+BMP280] STATUS: Menedzer mikroklimatu gotowy.");
@@ -51,7 +47,6 @@ bool IndoorEnvironmentManager::loop() {
     if (millis() - lastReadTime >= readInterval) {
         lastReadTime = millis();
 
-        // --- POBIERANIE DANYCH Z AHT20 ---
         if (ahtReady) {
             float t = aht20.readTemperature();
             float h = aht20.readHumidity();
@@ -62,9 +57,8 @@ bool IndoorEnvironmentManager::loop() {
             }
         }
         
-        // --- POBIERANIE DANYCH Z BMP280 ---
         if (bmpReady) {
-            currentPress = bmp.readPressure() / 100.0F; // Pa -> hPa
+            currentPress = bmp.readPressure() / 100.0F;
         }
         
         return true; 
@@ -74,8 +68,6 @@ bool IndoorEnvironmentManager::loop() {
 
 String IndoorEnvironmentManager::getSensorJson() {
     JsonDocument doc;
-    
-    // Zamykamy dane w obiekcie "indoor"
     JsonObject indoor = doc["indoor"].to<JsonObject>();
     indoor["temperature"] = currentTemp;
     indoor["humidity"] = currentHum;

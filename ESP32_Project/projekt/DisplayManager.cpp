@@ -1,6 +1,5 @@
 #include "DisplayManager.h"
 
-// Konstruktor - inicjalizacja obiektu SSD1306
 DisplayManager::DisplayManager()
   : display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET) {
   currentState = SCREEN_ENV;
@@ -8,13 +7,13 @@ DisplayManager::DisplayManager()
   lastScreenChange = 0;
   temporaryScreenTimer = 0;
 
-  // Wartości domyślne
   currentIP = "Brak IP";
   isConnectedMQTT = false;
   isArmed = false;
   temperature = 0.0;
   humidity = 0.0;
   fanSpeed = 0;
+  heatingActive = false;
   luxLevel = 0;
   ledStateWew = "OFF";
   ledStateZew = "OFF";
@@ -23,40 +22,41 @@ DisplayManager::DisplayManager()
 bool DisplayManager::init(String ip) {
   currentIP = ip;
 
-  // Inicjalizacja ekranu na domyślnych pinach I2C ESP32 (SDA=21, SCL=22)
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("Nie znaleziono ekranu OLED!"));
     return false;
   }
 
   display.setRotation(2);
-
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
 
-  // Ekran startowy
   display.setCursor(10, 25);
   display.println("Smart Home IoT");
   display.setCursor(10, 40);
   display.println("Inicjalizacja...");
   display.display();
-  delay(1000);  // Jedyny delay, dopuszczalny tylko podczas inicjalizacji (setup)
+  delay(1000);
 
   return true;
 }
 
 void DisplayManager::loop() {
+  static unsigned long lastOledRender = 0;
+  if (millis() - lastOledRender < 250) {
+    return; // Odświeżaj ekran maksymalnie co 250 ms - nie blokuj I2C i SPI!
+  }
+  lastOledRender = millis();
+
   display.clearDisplay();
 
-  // 1. Obsługa ekranu tymczasowego RFID
   if (currentState == SCREEN_RFID) {
     if (millis() - temporaryScreenTimer > temporaryScreenDuration) {
       currentState = previousState;
     }
   }
 
-  // 2. Logika karuzeli i wymuszania ekranu uzbrojenia
   if (currentState != SCREEN_ALARM && currentState != SCREEN_RFID) {
     if (isArmed) {
       currentState = SCREEN_ARMED;
@@ -77,14 +77,10 @@ void DisplayManager::loop() {
     }
   }
 
-  // === ZABEZPIECZENIE: BLOKADA MIGANIA ===
-  // Jeśli aktualny stan to NIE JEST krytyczny alarm, wymuszamy brak inwersji
   if (currentState != SCREEN_ALARM) {
     display.invertDisplay(false);
   }
-  // =======================================
 
-  // 3. Renderowanie odpowiedniego ekranu na podstawie stanu
   switch (currentState) {
     case SCREEN_ENV: drawEnvScreen(); break;
     case SCREEN_LIGHTS: drawLightsScreen(); break;
@@ -96,64 +92,42 @@ void DisplayManager::loop() {
   display.display();
 }
 
-// ==========================================
-// EKRAN: SYSTEM UZBROJONY (Spokojny, statyczny)
-// ==========================================
 void DisplayManager::drawArmedScreen() {
   display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
-
-  // Duży, czytelny napis na środku ekranu - bez żadnego migania
   display.setCursor(25, 15);
   display.print("SYSTEM");
-
   display.setCursor(10, 40);
   display.print("UZBROJONY");
 }
 
-// ==========================================
-// ZMODYFIKOWANY EKRAN ALARMU (Miga + Polski tekst)
-// ==========================================
 void DisplayManager::drawAlarmScreen() {
-  // Dynamiczne miganie - inwersja ekranu co 500ms
   display.invertDisplay(millis() % 1000 < 500);
-
   display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
-
-  // Napis ! ALARM !
   display.setCursor(12, 10);
   display.print("! ALARM !");
 
-  // Przyczyna alarmu
   display.setTextSize(1);
   display.setCursor(10, 40);
   display.print(alarmReason);
 }
 
-void DisplayManager::drawTopBar() {
-  // Funkcja pozostawiona pusta celowo
-}
+void DisplayManager::drawTopBar() {}
 
-// 2. Nowa konfiguracja ekranu środowiskowego (SCREEN_ENV)
 void DisplayManager::drawEnvScreen() {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
 
-  // --- LINIA 1: Kompaktowy odczyt głównych parametrów ---
-  // Przesunięcie na Y=12 zapewnia ładne symetryczne pozycjonowanie na ekranie
-  display.setCursor(10, 12);
-  display.print(temperature, 1);
-  display.print((char)247);  // Wyświetla profesjonalny symbol stopnia: °
-  display.print("C  |  ");
-  display.print(humidity, 1);
-  display.print(" %");
+  display.setCursor(6, 12);
+  display.print(temperature, 2);
+  display.print((char)247);
+  display.print("C | ");
+  display.print(humidity, 2);
+  display.print("%");
 
-  // --- Estetyczny separator graficzny ---
-  // Rysuje poziomą linię od piksela 0 do 128 na wysokości Y=26
   display.drawFastHLine(0, 26, 128, SSD1306_WHITE);
 
-  // --- LINIA 2: Stan wentylatora ---
   display.setCursor(10, 36);
   display.print("Wentylator : ");
   if (fanSpeed == 0) {
@@ -163,16 +137,15 @@ void DisplayManager::drawEnvScreen() {
     display.println("%");
   }
 
-  // --- LINIA 3: Stan ogrzewania (wpisany na sztywno) ---
   display.setCursor(10, 48);
-  display.println("Ogrzewanie : OFF");
+  display.print("Ogrzewanie : ");
+  display.println(heatingActive ? "ON" : "OFF");
 }
 
 void DisplayManager::drawLightsScreen() {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
 
-  // --- LINIA 1: Jasność otoczenia i tryb pracy oświetlenia ---
   display.setCursor(10, 12);
   display.print(luxLevel);
   display.print(" lx  |  ");
@@ -183,10 +156,8 @@ void DisplayManager::drawLightsScreen() {
     display.print("DAY");
   }
 
-  // --- Estetyczny separator graficzny ---
   display.drawFastHLine(0, 26, 128, SSD1306_WHITE);
 
-  // --- LINIA 2: Pasek LED wewnętrzny (LED IN) ---
   display.setCursor(10, 36);
   display.print("LED IN: ");
   display.print(ledStateWew);
@@ -195,7 +166,6 @@ void DisplayManager::drawLightsScreen() {
     display.print(" | 75%");
   }
 
-  // --- LINIA 3: Pasek LED zewnętrzny (LED OUT) ---
   display.setCursor(10, 48);
   display.print("LED OUT: ");
   display.print(ledStateZew);
@@ -215,12 +185,11 @@ void DisplayManager::drawRfidScreen() {
   display.print(rfidMessage);
 }
 
-// --- METODY AKTUALIZUJĄCE DANE (Settery) ---
-
-void DisplayManager::updateEnvironment(float temp, float hum, int fan) {
+void DisplayManager::updateEnvironment(float temp, float hum, int fan, bool heating) {
   temperature = temp;
   humidity = hum;
   fanSpeed = fan;
+  heatingActive = heating;
 }
 
 void DisplayManager::updateLighting(int lux, String wew, String zew) {
@@ -240,20 +209,21 @@ void DisplayManager::updateNetworkStatus(bool mqttStatus, String ip) {
 
 void DisplayManager::triggerAlarm(String reason) {
   alarmReason = reason;
-  currentState = SCREEN_ALARM;  // Wymuszamy stan priorytetowy
+  currentState = SCREEN_ALARM;
 }
 
 void DisplayManager::clearAlarm() {
-  // Wyłączamy inwersję w razie gdyby została po miganiu
   display.invertDisplay(false);
   currentState = SCREEN_ENV;
 }
 
 void DisplayManager::showRfidMessage(String msg, unsigned long durationMs) {
-  if (currentState == SCREEN_ALARM) return;  // Alarmu nie przerywamy komunikatem RFID
+  if (currentState == SCREEN_ALARM) return;
 
   rfidMessage = msg;
-  previousState = currentState;  // Zapisujemy, czy byliśmy w ENV czy w LIGHTS
+  if (currentState != SCREEN_RFID) {
+    previousState = currentState;
+  }
   currentState = SCREEN_RFID;
   temporaryScreenTimer = millis();
   temporaryScreenDuration = durationMs;

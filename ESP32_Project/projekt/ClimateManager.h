@@ -6,19 +6,23 @@
 class ClimateManager {
 private:
     int relayPin;
-    bool isActive;
-    float targetTemp;
+    bool isActive;       // Czy przekaźnik aktualnie grzeje
+    bool autoMode;       // Czy termostat (tryb AUTO) jest aktywny
+    float targetTemp;    // Temperatura zadana z aplikacji
+    const float hysteresis = 0.5; // Histereza 0.5*C zapobiegająca ciągłemu klikaniu przekaźnika
+
+    void setRelay(bool state);
 
 public:
     ClimateManager(int pin);
-    
     void init();
-    void setActive(bool state);
+    void setActive(bool state);      // Ręczne ON / OFF
+    void setAutoMode(bool enabled);  // Włączenie trybu AUTO
     bool getIsActive();
-    void setTargetTemp(float temp);
-    
-    // Zostawiamy tę metodę, bo używasz jej w projekt.ino do sterowania wentylatorem
-    int update(float currentTemp); 
+    bool isAutoMode();
+    void setTargetTemp(float temp);  // Ustawienie temperatury (np. Eco, Comfort, Boost, suwak)
+    float getTargetTemp();
+    void update(float currentTemp);  // Wywoływane w loop() - steruje termostatem
 };
 
 #endif

@@ -1,29 +1,39 @@
 #include "ClimateManager.h"
 
-// Konstruktor przypisujący pin 16 do zmiennej relayPin
 ClimateManager::ClimateManager(int pin) {
     relayPin = pin;
     isActive = false;
-    targetTemp = 20.0;
+    autoMode = false;
+    targetTemp = 22.0;
 }
 
 void ClimateManager::init() {
     pinMode(relayPin, OUTPUT);
-    // Wymuszamy stan niski na starcie systemu, aby Peltier nie grzał od razu
-    digitalWrite(relayPin, LOW); 
+    digitalWrite(relayPin, LOW);
 }
 
-// Funkcja włączająca lub wyłączająca grzanie
+void ClimateManager::setRelay(bool state) {
+    if (isActive != state) {
+        isActive = state;
+        digitalWrite(relayPin, isActive ? HIGH : LOW);
+        if (isActive) {
+            Serial.println("[HVAC] Ogrzewanie ON - przekaznik zwarty");
+        } else {
+            Serial.println("[HVAC] Ogrzewanie OFF - przekaznik rozwarty");
+        }
+    }
+}
+
 void ClimateManager::setActive(bool state) {
-    isActive = state;
-    
-    // Jeśli state to true (ON), wysyłamy HIGH na przekaźnik. W przeciwnym razie LOW.
-    if (isActive) {
-        digitalWrite(relayPin, HIGH); 
-        Serial.println("Ogrzewanie ON - przekaznik zwarty");
-    } else {
-        digitalWrite(relayPin, LOW);
-        Serial.println("Ogrzewanie OFF - przekaznik rozwarty");
+    autoMode = false; // Ręczne przełączenie wyłącza tryb AUTO
+    setRelay(state);
+}
+
+void ClimateManager::setAutoMode(bool enabled) {
+    autoMode = enabled;
+    Serial.printf("[HVAC] Tryb AUTO: %s (Cel: %.1f *C)\n", autoMode ? "WLACZONY" : "WYLACZONY", targetTemp);
+    if (!autoMode) {
+        setRelay(false);
     }
 }
 
@@ -31,17 +41,31 @@ bool ClimateManager::getIsActive() {
     return isActive;
 }
 
-void ClimateManager::setTargetTemp(float temp) {
-    targetTemp = temp;
+bool ClimateManager::isAutoMode() {
+    return autoMode;
 }
 
-// Prosty przykład funkcji, która reguluje wentylator na podstawie grzania
-int ClimateManager::update(float currentTemp) {
-    if (isActive) {
-        // Kiedy grzejemy Peltierem, wentylator musi kręcić się na 100%, aby rozprowadzać ciepło
-        return 100; 
+void ClimateManager::setTargetTemp(float temp) {
+    targetTemp = temp;
+    autoMode = true; // Zmiana temperatury docelowej (np. Boost / suwak) automatycznie aktywuje termostat
+    Serial.printf("[HVAC] Nowa temperatura docelowa: %.1f *C (Tryb AUTO aktywny)\n", targetTemp);
+}
+
+float ClimateManager::getTargetTemp() {
+    return targetTemp;
+}
+
+void ClimateManager::update(float currentTemp) {
+    if (!autoMode || currentTemp <= 0.0) {
+        return; // Jeśli tryb AUTO wyłączony lub czujnik jeszcze nie odczytał poprawnej temperatury
     }
-    
-    // Kiedy nie grzejemy, możemy wyłączyć wentylator (lub ustawić inną wartość)
-    return 0; 
+
+    // Jeśli w pokoju jest zimniej niż cel (np. 22.6 < 25.0 przy Boost) -> WŁĄCZ GRZANIE
+    if (currentTemp < (targetTemp - hysteresis)) {
+        setRelay(true);
+    } 
+    // Jeśli osiągnięto temperaturę docelową -> WYŁĄCZ GRZANIE
+    else if (currentTemp >= targetTemp) {
+        setRelay(false);
+    }
 }
