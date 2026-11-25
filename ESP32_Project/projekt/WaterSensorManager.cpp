@@ -16,10 +16,7 @@ bool WaterSensorManager::loop() {
         lastReadTime = millis();
 
         rawValue = analogRead(PIN_WATER);
-
-        waterLevelPercentage = map(rawValue, 0, 4095, 0, 100);
-        waterLevelPercentage = constrain(waterLevelPercentage, 0, 100);
-
+        waterLevelPercentage = constrain(map(rawValue, 0, 4095, 0, 100), 0, 100);
         isAlarm = (rawValue > WATER_THRESHOLD);
 
         return true; 
@@ -38,10 +35,7 @@ String WaterSensorManager::getSensorJson() {
     return output;
 }
 
-bool WaterSensorManager::getAlarmState() {
-    return isAlarm;
-}
-
-bool WaterSensorManager::isAlarmActive() {
-    return isAlarm;
-}
+bool WaterSensorManager::getAlarmState() { return isAlarm; }
+bool WaterSensorManager::isAlarmActive() { return isAlarm; }
+int WaterSensorManager::getRawValue() { return rawValue; }
+int WaterSensorManager::getPercentage() { return waterLevelPercentage; }

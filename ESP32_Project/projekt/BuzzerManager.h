@@ -8,23 +8,21 @@
 
 class BuzzerManager {
 private:
-  bool isBeeping;  // Flaga informująca, czy aktualnie trwa "piknięcie"
+  bool isBeeping;
   bool isDingDong;
-  unsigned long beepEndTime;   // Znacznik czasu, kiedy buzzer ma zamilknąć
-  unsigned long nextToneTime;  // Czas przejścia z "Ding" na "Dong"
+  unsigned long beepEndTime;
+  unsigned long nextToneTime;
 
-  void setBuzzerState(bool state);  // Fizyczne ustawienie pinu
-  void playTone(int frequency, int duration); // Nowa metoda pomocnicza
+  void setBuzzerState(bool state);
 
 public:
   BuzzerManager();
   void init();
   void processCommand(String jsonCommand);
-  void loop();  // Asynchroniczna pętla dla buzzera
+  void loop();
 
-  // Publiczna metoda, którą w przyszłości wywołamy np. z klasy od RFID
   void triggerBeep(unsigned int durationMs);
-  void triggerDoorbell(); // Nowa dedykowana metoda dla dzwonka
+  void triggerDoorbell();
 };
 
 #endif

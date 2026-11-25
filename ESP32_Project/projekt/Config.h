@@ -2,13 +2,12 @@
 #define CONFIG_H
 
 // Konfiguracja Wi-Fi
-// #define WIFI_SSID_1 "BART_ROUTER"
-// #define WIFI_PASS_1 "houseofBART22"
+#define WIFI_SSID_1 "BART_ROUTER"
+#define WIFI_PASS_1 "houseofBART22"
 
-// Dodaj w Config.h
-#define WIFI_SSID_1 "iPhone (Patryk)"
-#define WIFI_PASS_1 "caleczka24"
-
+// // Dodaj w Config.h
+// #define WIFI_SSID_1 "iPhone (Patryk)"
+// #define WIFI_PASS_1 "caleczka24"
 
 
 #define WIFI_SSID_2 "iPhone (Kseniya)"
@@ -22,8 +21,9 @@
 // #define MQTT_SERVER = "172.20.10.2";
 // #define MQTT_PORT = 1883;
 
-// Na to:
-#define MQTT_SERVER "172.20.10.2"
+/// Na to:
+// #define MQTT_SERVER "172.20.10.4"
+#define MQTT_SERVER "192.168.1.88"
 #define MQTT_PORT 1883
 
 #endif

@@ -3,30 +3,29 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include <AHTxx.h>           // Niezawodna biblioteka
-#include <Adafruit_BMP280.h> // Biblioteka do ciśnienia
+#include <AHTxx.h>
+#include <Adafruit_BMP280.h>
 #include <ArduinoJson.h>
 
 class IndoorEnvironmentManager {
 private:
-    AHTxx aht20;         // Zmieniona nazwa, dokladnie jak w dzialajacym kodzie V2
-    Adafruit_BMP280 bmp; // Obiekt czujnika BMP280 (ciśnienie)
+    AHTxx aht20;
+    Adafruit_BMP280 bmp;
     
     unsigned long lastReadTime;
-    const unsigned long readInterval = 5000; // Interwał odczytu: 5 sekund
+    const unsigned long readInterval = 5000;
     
     float currentTemp;
     float currentHum;
     float currentPress;
     
     bool isInitialized;
-    bool ahtReady; // Flaga poprawnego działania AHT20
-    bool bmpReady; // Flaga poprawnego działania BMP280
+    bool ahtReady;
+    bool bmpReady;
 
 public:
     IndoorEnvironmentManager();
     void init();
-    
     bool loop(); 
     String getSensorJson(); 
     

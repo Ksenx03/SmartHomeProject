@@ -34,9 +34,10 @@ public:
 
   String getWewState();
   String getZewState();
+  String getWewEffectMode(); // <--- Brakowało tej deklaracji!
 
   void setAlarmMode(AlarmMode mode);
-  void update();  // Metoda wywoływana w pętli loop()
+  void update();  
 };
 
 #endif

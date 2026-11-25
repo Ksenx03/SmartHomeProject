@@ -1,30 +1,28 @@
-#ifndef CLIMATE_MANAGER_H
-#define CLIMATE_MANAGER_H
+#ifndef CLIMATEMANAGER_H
+#define CLIMATEMANAGER_H
 
 #include <Arduino.h>
 
 class ClimateManager {
 private:
-    const uint8_t pinPeltier = 16;
-    const uint8_t pinFan = 17;
-    
-    bool peltierState;
-    bool fanState;
+    int relayPin;
+    bool isActive;       // Czy przekaźnik aktualnie grzeje
+    bool autoMode;       // Czy termostat (tryb AUTO) jest aktywny
+    float targetTemp;    // Temperatura zadana z aplikacji
+    const float hysteresis = 0.5; // Histereza 0.5*C zapobiegająca ciągłemu klikaniu przekaźnika
+
+    void setRelay(bool state);
 
 public:
-    ClimateManager();
+    ClimateManager(int pin);
     void init();
-    
-    void setPeltier(bool state);
-    void setFan(bool state);
-    void togglePeltier();
-    void toggleFan();
-    
-    bool getPeltierState() const;
-    bool getFanState() const;
-    
-    // Metoda pomocnicza do parsowania komend tekstowych (np. z MQTT)
-    void processCommand(const String& target, const String& stateCmd);
+    void setActive(bool state);      // Ręczne ON / OFF
+    void setAutoMode(bool enabled);  // Włączenie trybu AUTO
+    bool getIsActive();
+    bool isAutoMode();
+    void setTargetTemp(float temp);  // Ustawienie temperatury (np. Eco, Comfort, Boost, suwak)
+    float getTargetTemp();
+    void update(float currentTemp);  // Wywoływane w loop() - steruje termostatem
 };
 
-#endif // CLIMATE_MANAGER_H
+#endif

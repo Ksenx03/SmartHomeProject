@@ -23,6 +23,8 @@ public:
   String getSensorJson();
   bool getAlarmState();
   bool isAlarmActive();
+  int getRawValue();
+  int getPercentage();
 };
 
 #endif
