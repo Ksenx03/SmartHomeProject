@@ -18,7 +18,7 @@ class CameraActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera)
 
-        val defaultUrl = "http://172.20.10.4:5000/video_feed"
+        val defaultUrl = "http://172.20.10.4:8000/video_feed"
         val prefs = getSharedPreferences("SmartHomePrefs", Context.MODE_PRIVATE)
         val rawUrl = prefs.getString("rpi_camera_url", defaultUrl) ?: defaultUrl
         val savedUrl = if (rawUrl == "http://192.168.1.100:5000/video_feed") defaultUrl else rawUrl

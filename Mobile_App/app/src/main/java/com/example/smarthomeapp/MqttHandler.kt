@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 class MqttHandler(context: Context) {
     // Adres IP zgodny z MQTT_SERVER w Config.h na ESP32
-    private val serverUri = "tcp://192.168.1.88:1883"
+    private val serverUri = "tcp://172.20.10.4:1883"
     private val clientId = "AndroidClient_" + System.currentTimeMillis() + "_" + (0..999).random()
     private val client = MqttAsyncClient(serverUri, clientId, MemoryPersistence())
 
