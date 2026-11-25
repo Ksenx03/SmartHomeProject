@@ -5,7 +5,8 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="24dp">
+    android:padding="24dp"
+    android:background="?android:attr/windowBackground">
 
     <ImageView
         android:id="@+id/btnBack"
@@ -17,32 +18,108 @@
         app:tint="#00695C"/>
 
     <TextView
+        android:id="@+id/tvHeatingTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/card_heating"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="#00695C"
+        android:layout_marginStart="16dp"
+        app:layout_constraintTop_toTopOf="@id/btnBack"
+        app:layout_constraintBottom_toBottomOf="@id/btnBack"
+        app:layout_constraintStart_toEndOf="@id/btnBack" />
+
+    <!-- Przełącznik trybu AUTO / MANUAL -->
+    <LinearLayout
+        android:id="@+id/rowModeSwitch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="2"
+        android:layout_marginTop="20dp"
+        app:layout_constraintTop_toBottomOf="@id/btnBack">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnModeAuto"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="AUTO"
+            android:textStyle="bold"
+            android:textColor="#00695C"
+            android:background="@drawable/bg_heating_button"
+            android:layout_marginEnd="8dp"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnModeManual"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="MANUAL"
+            android:textStyle="bold"
+            android:textColor="#00695C"
+            android:background="@drawable/bg_heating_button"/>
+    </LinearLayout>
+
+    <!-- Ikona ogniska (płonące / zgaszone) -->
+    <ImageView
+        android:id="@+id/ivHeatingIcon"
+        android:layout_width="135dp"
+        android:layout_height="135dp"
+        android:layout_marginTop="20dp"
+        android:src="@drawable/ic_campfire_off"
+        android:padding="26dp"
+        android:background="@drawable/color_circle"
+        android:backgroundTint="#1A00695C"
+        app:layout_constraintTop_toBottomOf="@id/rowModeSwitch"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/tvHeatingStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="OFF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#808080"
+        android:layout_marginTop="10dp"
+        app:layout_constraintTop_toBottomOf="@id/ivHeatingIcon"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Aktualna temperatura w pokoju -->
+    <TextView
         android:id="@+id/tvCurrentTemp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="--" android:textSize="48sp"
+        android:text="-- &#176;C"
+        android:textSize="36sp"
+        android:textStyle="bold"
         android:textColor="#00695C"
-        app:layout_constraintTop_toBottomOf="@id/btnBack"
+        android:layout_marginTop="12dp"
+        app:layout_constraintTop_toBottomOf="@id/tvHeatingStatus"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="40dp"/>
+        app:layout_constraintEnd_toEndOf="parent"/>
 
     <TextView
         android:id="@+id/tvCurrentLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Current Room Temperature"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:textColor="#8000695C"
         app:layout_constraintTop_toBottomOf="@id/tvCurrentTemp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <!-- Suwak temperatury docelowej -->
     <SeekBar
         android:id="@+id/sbTemperature"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
+        android:layout_marginTop="28dp"
         android:max="35"
         android:min="15"
         android:progress="22"
@@ -56,20 +133,21 @@
         android:id="@+id/tvTargetTemp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="22°C"
-        android:textSize="32sp"
+        android:text="22&#176;C"
+        android:textSize="28sp"
         android:textStyle="bold"
         android:textColor="#00695C"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="8dp"
         app:layout_constraintTop_toBottomOf="@id/sbTemperature"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Przyciski Eco / Comfort / Boost -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="24dp"
         app:layout_constraintTop_toBottomOf="@id/tvTargetTemp">
 
         <androidx.appcompat.widget.AppCompatButton
@@ -78,6 +156,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Eco"
+            android:textStyle="bold"
             android:textColor="#00695C"
             android:background="@drawable/bg_heating_button"
             android:layout_marginEnd="8dp"/>
@@ -88,6 +167,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Comfort"
+            android:textStyle="bold"
             android:textColor="#00695C"
             android:background="@drawable/bg_heating_button"
             android:layout_marginEnd="8dp"/>
@@ -98,6 +178,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Boost"
+            android:textStyle="bold"
             android:textColor="#00695C"
             android:background="@drawable/bg_heating_button"/>
     </LinearLayout>

@@ -236,6 +236,15 @@
                         <TextView android:text="@string/card_blinds" style="@style/SmartTextStyle" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/btnCamera"
+                    style="@style/SmartCardStyle">
+                    <LinearLayout style="@style/SmartCardContent">
+                        <ImageView android:id="@+id/ivCamera" android:src="@drawable/ic_camera" style="@style/SmartIconStyle" />
+                        <TextView android:text="Camera" style="@style/SmartTextStyle" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
             </GridLayout>
 
         </LinearLayout>

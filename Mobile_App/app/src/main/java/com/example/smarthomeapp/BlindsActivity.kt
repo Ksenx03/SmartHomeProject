@@ -9,19 +9,14 @@ import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
-import org.eclipse.paho.client.mqttv3.MqttCallback
-import org.eclipse.paho.client.mqttv3.MqttClient
-import org.eclipse.paho.client.mqttv3.MqttMessage
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 import org.json.JSONObject
 
 class BlindsActivity : AppCompatActivity() {
 
-    private var mqttClient: MqttClient? = null
-    private val serverUri = "tcp://172.20.10.4:1883"
+    private lateinit var mqttHandler: MqttHandler
     private val topicSet = "makieta/serwo/ustaw"
     private val topicStatus = "makieta/serwo/status"
+    private val topicSystemStatus = "makieta/status/systemy"
 
     private lateinit var sharedPref: SharedPreferences
     private val PREFS_NAME = "SmartHomePrefs"
@@ -30,6 +25,7 @@ class BlindsActivity : AppCompatActivity() {
     private lateinit var blindsView: View
     private lateinit var sbBlinds: SeekBar
     private lateinit var tvStatus: TextView
+    private var isUserDragging = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,9 +40,27 @@ class BlindsActivity : AppCompatActivity() {
 
         btnBack.setOnClickListener { finish() }
 
-        connectMqtt()
+        // Wczytanie zapamiętanej pozycji od razu przy otwarciu ekranu
+        val savedPosition = sharedPref.getInt(KEY_BLINDS_POS, 0)
+        blindsView.post {
+            applyUIUpdate(savedPosition)
+        }
 
-        // Слушатель ручного перемещения ползунка
+        mqttHandler = MqttHandler(this)
+        mqttHandler.connect(
+            onConnected = {
+                mqttHandler.subscribe(topicStatus)
+                mqttHandler.subscribe(topicSystemStatus)
+            },
+            onMessage = { payload ->
+                runOnUiThread {
+                    if (!isUserDragging) {
+                        handleIncomingStatus(payload)
+                    }
+                }
+            }
+        )
+
         sbBlinds.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
@@ -54,9 +68,12 @@ class BlindsActivity : AppCompatActivity() {
                 }
             }
 
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+                isUserDragging = true
+            }
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                isUserDragging = false
                 seekBar?.let {
                     saveBlindsPosition(it.progress)
                     sendBlindsCommand(it.progress)
@@ -64,27 +81,24 @@ class BlindsActivity : AppCompatActivity() {
             }
         })
 
-        // Кнопки-пресеты
         findViewById<Button>(R.id.btnOpen).setOnClickListener { applyPreset(0) }
         findViewById<Button>(R.id.btnClosed).setOnClickListener { applyPreset(100) }
         findViewById<Button>(R.id.btn30).setOnClickListener { applyPreset(30) }
         findViewById<Button>(R.id.btn60).setOnClickListener { applyPreset(60) }
-
-        // Загрузка начального положения из памяти
-        val savedPosition = sharedPref.getInt(KEY_BLINDS_POS, 100)
-        applyUIUpdate(savedPosition)
     }
 
     private fun updateBlindsVisual(percentage: Int) {
         val safePercentage = percentage.coerceIn(0, 100)
         tvStatus.text = "Closed: $safePercentage%"
 
-        val density = resources.displayMetrics.density
-        val maxWindowHeightPx = 250 * density
+        val parentHeight = (blindsView.parent as? View)?.height ?: 0
+        val maxWindowHeightPx = if (parentHeight > 0) parentHeight.toFloat() else (250 * resources.displayMetrics.density)
 
         val params = blindsView.layoutParams
-        params.height = (maxWindowHeightPx * (safePercentage / 100f)).toInt()
+        // Gdy 0% zostawiamy 4px paska u góry, żeby widok był widoczny
+        params.height = ((maxWindowHeightPx * (safePercentage / 100f)).toInt()).coerceAtLeast(4)
         blindsView.layoutParams = params
+        blindsView.requestLayout()
     }
 
     private fun applyUIUpdate(percent: Int) {
@@ -94,7 +108,7 @@ class BlindsActivity : AppCompatActivity() {
     }
 
     private fun saveBlindsPosition(percent: Int) {
-        sharedPref.edit().putInt(KEY_BLINDS_POS, percent).apply()
+        sharedPref.edit().putInt(KEY_BLINDS_POS, percent.coerceIn(0, 100)).apply()
     }
 
     private fun applyPreset(percent: Int) {
@@ -104,42 +118,23 @@ class BlindsActivity : AppCompatActivity() {
         sendBlindsCommand(safePercent)
     }
 
-    private fun connectMqtt() {
-        Thread {
-            try {
-                val clientId = "BlindsApp_" + System.currentTimeMillis()
-                mqttClient = MqttClient(serverUri, clientId, MemoryPersistence())
-
-                mqttClient?.setCallback(object : MqttCallback {
-                    override fun connectionLost(cause: Throwable?) {}
-
-                    override fun messageArrived(topic: String?, message: MqttMessage?) {
-                        if (topic == topicStatus) {
-                            val payload = String(message?.payload ?: return)
-                            handleIncomingStatus(payload)
-                        }
-                    }
-
-                    override fun deliveryComplete(token: IMqttDeliveryToken?) {}
-                })
-
-                mqttClient?.connect()
-                mqttClient?.subscribe(topicStatus)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }.start()
-    }
-
     private fun handleIncomingStatus(jsonString: String) {
         try {
-            val json = JSONObject(jsonString)
+            val clean = jsonString.trim()
+            if (!clean.startsWith("{")) return
+            val json = JSONObject(clean)
+
+            // 1. Odbiór z makieta/serwo/status
             if (json.optString("target") == "zaluzja" && json.has("position")) {
                 val newPos = json.getInt("position")
-                runOnUiThread {
-                    applyUIUpdate(newPos)
-                    saveBlindsPosition(newPos)
-                }
+                applyUIUpdate(newPos)
+                saveBlindsPosition(newPos)
+            }
+            // 2. Odbiór z makieta/status/systemy (stała synchronizacja co 5s)
+            else if (json.has("blinds_pos")) {
+                val newPos = json.getInt("blinds_pos")
+                applyUIUpdate(newPos)
+                saveBlindsPosition(newPos)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -147,28 +142,12 @@ class BlindsActivity : AppCompatActivity() {
     }
 
     private fun sendBlindsCommand(percent: Int) {
-        Thread {
-            try {
-                if (mqttClient?.isConnected == true) {
-                    val payload = """{"target":"zaluzja","position":$percent}"""
-                    val message = MqttMessage(payload.toByteArray())
-                    mqttClient?.publish(topicSet, message)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }.start()
+        val payload = """{"target":"zaluzja","position":$percent}"""
+        mqttHandler.publish(topicSet, payload, retained = true)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Thread {
-            try {
-                mqttClient?.disconnect()
-                mqttClient?.close()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }.start()
+        mqttHandler.disconnect()
     }
 }

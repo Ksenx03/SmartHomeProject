@@ -6,43 +6,47 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.tabs.TabLayout
+import org.json.JSONObject
+import java.util.Locale
 
 class LightingActivity : AppCompatActivity() {
 
     private lateinit var mqttHandler: MqttHandler
     private lateinit var prefs: SharedPreferences
 
-    // Элементы интерфейса
     private lateinit var ivLightButton: ImageView
     private lateinit var tvStatus: TextView
     private lateinit var tvBrightnessPercent: TextView
     private lateinit var sbBrightness: SeekBar
     private lateinit var modeButtons: List<Button>
     private lateinit var tabLayout: TabLayout
-    private lateinit var layoutAutoMode: LinearLayout
-    private lateinit var switchAutoMode: SwitchMaterial
 
-    // Цвета из дизайна
+    // Widoki z nowego activity_lighting.xml
+    private lateinit var layoutAutoMode: View
+    private lateinit var layoutIndoorEffects: View
+    private lateinit var switchAutoMode: SwitchMaterial
+    private lateinit var tvZoneSubtitle: TextView
+    private lateinit var tvLightSensorLux: TextView
+    private lateinit var tvDayNightBadge: TextView
+
     private val heatingGreen = Color.parseColor("#00695C")
     private val buttonBgInactive = Color.parseColor("#4D00695C")
 
-    // Текущая выбранная зона управления ("wew" или "zew")
     private var currentTarget = "wew"
 
-    // Переменные состояния
     private var isLightOn = "OFF"
     private var currentBrightness = 100
-    private var currentR = 255; private var currentG = 255; private var currentB = 255
+    private var currentR = 255
+    private var currentG = 255
+    private var currentB = 255
     private var currentMode = "none"
+    private var isAutoNightEnabled = true
 
-    // Палитра без черного цвета (заменили на уютный теплый белый)
     private val colorPalette = arrayOf(
         "#FF0000", "#FF4500", "#FF8C00", "#FFA500", "#FFD700", "#FFFF00",
         "#CCFF00", "#80FF00", "#00FF00", "#00FF80", "#00FFFF", "#00CCFF",
@@ -55,13 +59,6 @@ class LightingActivity : AppCompatActivity() {
         setContentView(R.layout.activity_lighting)
 
         prefs = getSharedPreferences("SmartHomePrefs", Context.MODE_PRIVATE)
-        loadSavedState("wew")
-
-        mqttHandler = MqttHandler(this)
-        mqttHandler.connect(
-            onConnected = { Log.d("MQTT", "Lighting Activity Connected") },
-            onMessage = { msg -> Log.d("MQTT", "Received light status: $msg") }
-        )
 
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { finish() }
         ivLightButton = findViewById(R.id.ivLightButton)
@@ -69,13 +66,35 @@ class LightingActivity : AppCompatActivity() {
         tvBrightnessPercent = findViewById(R.id.tvBrightnessPercent)
         sbBrightness = findViewById(R.id.brightnessSeekBar)
         tabLayout = findViewById(R.id.tabLightTarget)
+
+        // Bezpieczne bindowanie widoków (CardView/LinearLayout jako View - zero ClassCastException)
         layoutAutoMode = findViewById(R.id.layoutAutoMode)
+        layoutIndoorEffects = findViewById(R.id.layoutIndoorEffects)
         switchAutoMode = findViewById(R.id.switchAutoMode)
+        tvZoneSubtitle = findViewById(R.id.tvZoneSubtitle)
+        tvLightSensorLux = findViewById(R.id.tvLightSensorLux)
+        tvDayNightBadge = findViewById(R.id.tvDayNightBadge)
 
         modeButtons = listOf(
             findViewById(R.id.btnDisco),
             findViewById(R.id.btnRelax),
             findViewById(R.id.btnStrobe)
+        )
+
+        loadSavedState("wew")
+        loadCachedLux()
+
+        mqttHandler = MqttHandler(this)
+        mqttHandler.connect(
+            onConnected = {
+                mqttHandler.subscribe("makieta/czujniki/swiatlo")
+                mqttHandler.subscribe("makieta/status/systemy")
+            },
+            onMessage = { msg ->
+                runOnUiThread {
+                    handleIncomingMqtt(msg)
+                }
+            }
         )
 
         setupTargetTabs()
@@ -86,6 +105,46 @@ class LightingActivity : AppCompatActivity() {
         setupAutoModeSwitch()
 
         updateUIState()
+    }
+
+    private fun loadCachedLux() {
+        val cachedLux = prefs.getFloat("cached_lux", -1f)
+        if (cachedLux >= 0f) {
+            updateLuxDisplay(cachedLux.toDouble())
+        }
+    }
+
+    private fun updateLuxDisplay(lux: Double) {
+        tvLightSensorLux.text = String.format(Locale.US, "%.2f lx", lux)
+        if (lux < 100.0) {
+            tvDayNightBadge.text = "\uD83C\uDF19 NIGHT"
+        } else {
+            tvDayNightBadge.text = "\u2600\uFE0F DAY"
+        }
+    }
+
+    private fun handleIncomingMqtt(msg: String) {
+        try {
+            val clean = msg.trim()
+            if (!clean.startsWith("{")) return
+            val json = JSONObject(clean)
+
+            if (json.has("lux")) {
+                val lux = json.optDouble("lux", 0.0)
+                prefs.edit().putFloat("cached_lux", lux.toFloat()).apply()
+                updateLuxDisplay(lux)
+            }
+
+            if (json.has("status_auto_light")) {
+                isAutoNightEnabled = (json.optString("status_auto_light", "ON") == "ON")
+                prefs.edit().putBoolean("zew_auto_night", isAutoNightEnabled).apply()
+                if (currentTarget == "zew") {
+                    switchAutoMode.isChecked = isAutoNightEnabled
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun setupTargetTabs() {
@@ -104,22 +163,29 @@ class LightingActivity : AppCompatActivity() {
         ivLightButton.setOnClickListener {
             isLightOn = if (isLightOn == "OFF") "ON" else "OFF"
             if (isLightOn == "OFF") currentMode = "none"
+            if (isLightOn == "ON" && currentBrightness == 0) currentBrightness = 100
 
-            updateUIState()
             saveState(currentTarget)
+            updateUIState()
             sendCommand()
         }
     }
 
     private fun setupBrightnessControl() {
         sbBrightness.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar?, p: Int, f: Boolean) {
+            override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
                 currentBrightness = p
                 tvBrightnessPercent.text = "$p%"
+                if (fromUser) {
+                    if (p > 0 && isLightOn == "OFF") isLightOn = "ON"
+                    if (p == 0) isLightOn = "OFF"
+                    updateBulbIconVisual()
+                }
             }
             override fun onStartTrackingTouch(s: SeekBar?) {}
             override fun onStopTrackingTouch(s: SeekBar?) {
                 saveState(currentTarget)
+                updateUIState()
                 sendCommand()
             }
         })
@@ -135,27 +201,32 @@ class LightingActivity : AppCompatActivity() {
 
         for (colorHex in colorPalette) {
             val colorView = View(this)
-            val params = GridLayout.LayoutParams()
-            params.width = size
-            params.height = size
-            params.setMargins(margin, margin, margin, margin)
+            val params = GridLayout.LayoutParams().apply {
+                width = size
+                height = size
+                setMargins(margin, margin, margin, margin)
+            }
             colorView.layoutParams = params
 
-            val drawable = ContextCompat.getDrawable(this, R.drawable.color_circle)?.mutate() as GradientDrawable
-            drawable.setColor(Color.parseColor(colorHex))
-            colorView.background = drawable
+            val circleDrawable = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor(colorHex))
+                setStroke((1.5f * density).toInt(), Color.parseColor("#3300695C"))
+            }
+            colorView.background = circleDrawable
 
             colorView.setOnClickListener {
                 currentMode = "none"
                 isLightOn = "ON"
+                if (currentBrightness == 0) currentBrightness = 100
 
                 val color = Color.parseColor(colorHex)
                 currentR = Color.red(color)
                 currentG = Color.green(color)
                 currentB = Color.blue(color)
 
-                updateUIState()
                 saveState(currentTarget)
+                updateUIState()
                 sendCommand()
 
                 colorView.animate().scaleX(0.8f).scaleY(0.8f).setDuration(100).withEndAction {
@@ -169,59 +240,82 @@ class LightingActivity : AppCompatActivity() {
     private fun setupSpecialModes() {
         modeButtons.forEach { btn ->
             btn.setOnClickListener {
-                val clickedMode = btn.text.toString().lowercase()
+                val clickedMode = btn.text.toString().lowercase(Locale.ROOT)
                 currentMode = if (currentMode == clickedMode) "none" else clickedMode
-                if (currentMode != "none") isLightOn = "ON"
+                if (currentMode != "none") {
+                    isLightOn = "ON"
+                    if (currentBrightness == 0) currentBrightness = 100
+                }
 
-                updateUIState()
                 saveState(currentTarget)
+                updateUIState()
                 sendCommand()
             }
         }
     }
 
-    // Логика работы переключателя автоматического режима
     private fun setupAutoModeSwitch() {
         switchAutoMode.setOnCheckedChangeListener { buttonView, isChecked ->
-            // Sprawdzamy czy zmiana pochodzi od fizycznego kliknięcia użytkownika
             if (buttonView.isPressed) {
+                isAutoNightEnabled = isChecked
                 currentMode = if (isChecked) "auto" else "none"
-                updateUIState()
+                prefs.edit().putBoolean("zew_auto_night", isChecked).apply()
                 saveState(currentTarget)
-                sendCommand()
+                updateUIState()
+
+                val autoPayload = if (isChecked) "ON" else "OFF"
+                mqttHandler.publish("makieta/oswietlenie/automatyka", autoPayload, retained = true)
             }
+        }
+    }
+
+    private fun updateBulbIconVisual() {
+        if (isLightOn == "ON" && currentBrightness > 0) {
+            val activeColor = Color.rgb(currentR, currentG, currentB)
+            val normalizedAlpha = 0.25f + (currentBrightness.coerceIn(0, 100) / 100f) * 0.75f
+
+            ivLightButton.setColorFilter(activeColor)
+            ivLightButton.imageAlpha = (normalizedAlpha * 255).toInt()
+
+            val glowAlpha = (30 + (currentBrightness.coerceIn(0, 100) * 1.1f)).toInt().coerceIn(30, 140)
+            val glowColor = Color.argb(glowAlpha, Color.red(activeColor), Color.green(activeColor), Color.blue(activeColor))
+            ivLightButton.backgroundTintList = ColorStateList.valueOf(glowColor)
+        } else {
+            ivLightButton.setColorFilter(Color.parseColor("#6600695C"))
+            ivLightButton.imageAlpha = 120
+            ivLightButton.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#1A00695C"))
         }
     }
 
     private fun updateUIState() {
-        // Показываем блок переключателя авторежима ТОЛЬКО для Outdoor (zew)
         if (currentTarget == "zew") {
+            tvZoneSubtitle.text = "Strefa: Oświetlenie elewacji (LED Zew)"
+            layoutIndoorEffects.visibility = View.GONE
             layoutAutoMode.visibility = View.VISIBLE
-            switchAutoMode.isChecked = (currentMode == "auto")
+            switchAutoMode.isChecked = isAutoNightEnabled
         } else {
+            tvZoneSubtitle.text = "Strefa: Oświetlenie salonu (LED Wew)"
+            layoutIndoorEffects.visibility = View.VISIBLE
             layoutAutoMode.visibility = View.GONE
         }
 
-        // Если включен авторежим, пишем AUTO, иначе текущее состояние (ON/OFF)
-        tvStatus.text = if (currentMode == "auto" && isLightOn == "OFF") "AUTO" else if (currentMode == "auto" && isLightOn == "ON") "AUTO (ACTIVE)" else isLightOn
-
-        // Лампочка загорается ТОЛЬКО если реальный статус света ON (неважно, ручной это режим или авто)
-        if (isLightOn == "ON") {
-            tvStatus.setTextColor(heatingGreen)
-            // Если горит в авторежиме — сделаем красивый золотой, если вручную — RGB цвет
-            if (currentMode == "auto") {
-                ivLightButton.setColorFilter(Color.parseColor("#FFD700"))
-            } else {
-                ivLightButton.setColorFilter(Color.rgb(currentR, currentG, currentB))
-            }
-        } else {
-            // Если свет OFF (даже при включенном авторежиме, пока светло) — лампочка серая!
-            tvStatus.setTextColor(Color.GRAY)
-            ivLightButton.setColorFilter(Color.parseColor("#4400695C"))
+        tvStatus.text = when {
+            currentTarget == "zew" && isAutoNightEnabled && isLightOn == "OFF" -> "AUTO (STANDBY)"
+            currentTarget == "zew" && isAutoNightEnabled && isLightOn == "ON" -> "AUTO ($currentBrightness%)"
+            isLightOn == "ON" -> "ON ($currentBrightness%)"
+            else -> "OFF"
         }
 
+        if (isLightOn == "ON" && currentBrightness > 0) {
+            tvStatus.setTextColor(heatingGreen)
+        } else {
+            tvStatus.setTextColor(Color.GRAY)
+        }
+
+        updateBulbIconVisual()
+
         modeButtons.forEach { btn ->
-            val btnMode = btn.text.toString().lowercase()
+            val btnMode = btn.text.toString().lowercase(Locale.ROOT)
             if (currentMode == btnMode && isLightOn == "ON") {
                 btn.backgroundTintList = ColorStateList.valueOf(heatingGreen)
                 btn.setTextColor(Color.WHITE)
@@ -236,6 +330,10 @@ class LightingActivity : AppCompatActivity() {
     }
 
     private fun saveState(target: String) {
+        val otherTarget = if (target == "wew") "zew" else "wew"
+        val otherState = prefs.getString("${otherTarget}_lightState", "OFF") ?: "OFF"
+        val overallStatus = if (isLightOn == "ON" || otherState == "ON") "ON" else "OFF"
+
         prefs.edit().apply {
             putString("${target}_lightState", isLightOn)
             putInt("${target}_brightness", currentBrightness)
@@ -243,6 +341,7 @@ class LightingActivity : AppCompatActivity() {
             putInt("${target}_g", currentG)
             putInt("${target}_b", currentB)
             putString("${target}_mode", currentMode)
+            putString("status_light", overallStatus)
             apply()
         }
     }
@@ -254,26 +353,17 @@ class LightingActivity : AppCompatActivity() {
         currentG = prefs.getInt("${target}_g", 255)
         currentB = prefs.getInt("${target}_b", 255)
         currentMode = prefs.getString("${target}_mode", "none") ?: "none"
+        isAutoNightEnabled = prefs.getBoolean("zew_auto_night", true)
     }
 
     private fun sendCommand() {
-        // 1. Standardowa komenda JSON do sterownika LED
         val topic = "makieta/oswietlenie/ustaw"
-        val payload = """{
-        "target":"$currentTarget",
-        "state":"$isLightOn",
-        "mode":"$currentMode",
-        "brightness":$currentBrightness,
-        "color":{"r":$currentR,"g":$currentG,"b":$currentB}
-    }""".trimIndent()
-        mqttHandler.publish(topic, payload)
+        val payload = """{"target":"$currentTarget","state":"$isLightOn","mode":"$currentMode","brightness":$currentBrightness,"color":{"r":$currentR,"g":$currentG,"b":$currentB}}"""
+        mqttHandler.publish(topic, payload, retained = true)
+    }
 
-        // 2. KRYTYCZNE DLA TWOJEGO PROBLEMU: Sterowanie flagą automatyki w ESP32
-        if (currentTarget == "zew") {
-            val autoTopic = "makieta/oswietlenie/automatyka"
-            // Jeśli currentMode to "auto", wysyłamy "ON", w przeciwnym razie "OFF"
-            val autoPayload = if (currentMode == "auto") "ON" else "OFF"
-            mqttHandler.publish(autoTopic, autoPayload)
-        }
+    override fun onDestroy() {
+        super.onDestroy()
+        mqttHandler.disconnect()
     }
 }
